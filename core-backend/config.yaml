@@ -1,0 +1,10 @@
+server:
+  port: "8080"
+  env: "development"
+
+database:
+  url: "postgres://postgres:postgres@localhost:5432/saas_dev?sslmode=disable"
+  max_conns: 10
+
+logger:
+  level: "debug"

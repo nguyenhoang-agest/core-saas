@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  check:
+    name: Build, Vet, Lint & Test (Go 1.27)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.27
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          check-latest: true
+
+      - name: Verify Environment
+        run: go version
+
+      - name: Verify Dependencies
+        run: go mod verify
+
+      - name: Build All
+        run: go build ./...
+
+      - name: Go Vet
+        run: go vet ./...
+
+      - name: Run Tests (-race)
+        run: go test -race ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m

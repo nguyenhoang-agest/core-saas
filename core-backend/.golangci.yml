@@ -1,0 +1,41 @@
+run:
+  timeout: 5m
+  go: "1.27"
+
+linters:
+  enable:
+    - depguard
+    - govet
+    - staticcheck
+    - ineffassign
+    - misspell
+    - unconvert
+
+linters-settings:
+  depguard:
+    rules:
+      pkg-isolation:
+        list-mode: lax
+        files:
+          - "**/pkg/**"
+        deny:
+          - pkg: "github.com/example/core-backend/modules"
+            desc: "Infrastructure packages in pkg/ must never import business modules"
+
+      module-internals-isolation:
+        list-mode: lax
+        files:
+          - "**/modules/**"
+        deny:
+          - pkg: "github.com/example/core-backend/modules/*/adapters"
+            desc: "Modules must not import internal adapters of other modules"
+          - pkg: "github.com/example/core-backend/modules/*/app"
+            desc: "Modules must not import internal application layer of other modules"
+          - pkg: "github.com/example/core-backend/modules/*/domain"
+            desc: "Modules must not import internal domain layer of other modules"
+          - pkg: "github.com/example/core-backend/modules/*/http"
+            desc: "Modules must not import internal HTTP handlers of other modules"
+
+issues:
+  exclude-dirs:
+    - modules/_template
