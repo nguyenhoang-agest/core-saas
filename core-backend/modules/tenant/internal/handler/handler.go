@@ -1,13 +1,11 @@
-package http
+package handler
 
 import (
 	"errors"
 	"net/http"
 
-	"github.com/example/core-backend/modules/tenant/domain/dto"
-	"github.com/example/core-backend/modules/tenant/domain/exception"
-	"github.com/example/core-backend/modules/tenant/service"
-	pkgerrors "github.com/example/core-backend/pkg/errors"
+	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/httpx"
 	"github.com/go-chi/chi/v5"
 )
@@ -26,9 +24,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
-	var input dto.CreateTenantRequest
+	var input service.CreateTenantRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
-		httpx.Error(w, err)
+		httpx.ErrorCode(w, response_code.InvalidPayload)
 		return
 	}
 
@@ -38,7 +36,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusCreated, httpx.Response{Data: tenant})
+	httpx.Success(w, http.StatusCreated, tenant)
 }
 
 func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
@@ -49,18 +47,15 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, httpx.Response{Data: tenant})
+	httpx.Success(w, http.StatusOK, tenant)
 }
 
 func (h *Handler) handleError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, exception.ErrNotFound):
-		httpx.Error(w, pkgerrors.NotFound("tenant not found", err))
-	case errors.Is(err, exception.ErrInvalidInput):
-		httpx.Error(w, pkgerrors.InvalidArgument(err.Error(), err))
-	case errors.Is(err, exception.ErrAlreadyExists):
-		httpx.Error(w, pkgerrors.Conflict("tenant already exists", err))
-	default:
-		httpx.Error(w, pkgerrors.Internal("internal server error", err))
+	var respCode response_code.IResponseCode
+	if errors.As(err, &respCode) {
+		httpx.ErrorCode(w, respCode)
+		return
 	}
+
+	httpx.ErrorCode(w, response_code.InternalServerGeneral)
 }

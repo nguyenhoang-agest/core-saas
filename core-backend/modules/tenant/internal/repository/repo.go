@@ -1,4 +1,4 @@
-package adapters
+package repository
 
 import (
 	"context"
@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/example/core-backend/modules/tenant/domain"
-	"github.com/example/core-backend/modules/tenant/domain/exception"
-	"github.com/example/core-backend/modules/tenant/repository"
+	"github.com/example/core-backend/modules/tenant/internal/model"
+	"github.com/example/core-backend/modules/tenant/internal/service"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var _ repository.ITenantRepository = (*PostgresTenantRepository)(nil)
+var _ service.Repository = (*PostgresTenantRepository)(nil)
 
 type PostgresTenantRepository struct {
 	pool *pgxpool.Pool
@@ -24,7 +23,7 @@ func NewPostgresTenantRepository(pool *pgxpool.Pool) *PostgresTenantRepository {
 	return &PostgresTenantRepository{pool: pool}
 }
 
-func (r *PostgresTenantRepository) Create(ctx context.Context, tenant *domain.Tenant) error {
+func (r *PostgresTenantRepository) Create(ctx context.Context, tenant *model.Tenant) error {
 	if r.pool == nil {
 		return fmt.Errorf("database pool is not initialized")
 	}
@@ -47,7 +46,7 @@ func (r *PostgresTenantRepository) Create(ctx context.Context, tenant *domain.Te
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return exception.ErrAlreadyExists
+			return model.ErrAlreadyExists
 		}
 		return fmt.Errorf("inserting tenant: %w", err)
 	}
@@ -55,7 +54,7 @@ func (r *PostgresTenantRepository) Create(ctx context.Context, tenant *domain.Te
 	return nil
 }
 
-func (r *PostgresTenantRepository) GetTenantByID(ctx context.Context, id string) (*domain.Tenant, error) {
+func (r *PostgresTenantRepository) GetTenantByID(ctx context.Context, id string) (*model.Tenant, error) {
 	if r.pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
@@ -65,7 +64,7 @@ func (r *PostgresTenantRepository) GetTenantByID(ctx context.Context, id string)
 		FROM tenants
 		WHERE id = $1 AND delete_at IS NULL
 	`
-	var t domain.Tenant
+	var t model.Tenant
 	var statusStr string
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
@@ -79,16 +78,16 @@ func (r *PostgresTenantRepository) GetTenantByID(ctx context.Context, id string)
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, exception.ErrNotFound
+			return nil, model.ErrNotFound
 		}
 		return nil, fmt.Errorf("querying tenant by id: %w", err)
 	}
 
-	t.Status = domain.Status(statusStr)
+	t.Status = model.Status(statusStr)
 	return &t, nil
 }
 
-func (r *PostgresTenantRepository) GetTenantByName(ctx context.Context, name string) (*domain.Tenant, error) {
+func (r *PostgresTenantRepository) GetTenantByName(ctx context.Context, name string) (*model.Tenant, error) {
 	if r.pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
@@ -98,7 +97,7 @@ func (r *PostgresTenantRepository) GetTenantByName(ctx context.Context, name str
 		FROM tenants
 		WHERE name = $1 AND delete_at IS NULL
 	`
-	var t domain.Tenant
+	var t model.Tenant
 	var statusStr string
 
 	err := r.pool.QueryRow(ctx, query, name).Scan(
@@ -112,16 +111,16 @@ func (r *PostgresTenantRepository) GetTenantByName(ctx context.Context, name str
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, exception.ErrNotFound
+			return nil, model.ErrNotFound
 		}
 		return nil, fmt.Errorf("querying tenant by name: %w", err)
 	}
 
-	t.Status = domain.Status(statusStr)
+	t.Status = model.Status(statusStr)
 	return &t, nil
 }
 
-func (r *PostgresTenantRepository) Update(ctx context.Context, tenant *domain.Tenant) error {
+func (r *PostgresTenantRepository) Update(ctx context.Context, tenant *model.Tenant) error {
 	if r.pool == nil {
 		return fmt.Errorf("database pool is not initialized")
 	}
@@ -147,7 +146,7 @@ func (r *PostgresTenantRepository) Update(ctx context.Context, tenant *domain.Te
 	}
 
 	if cmdTag.RowsAffected() == 0 {
-		return exception.ErrNotFound
+		return model.ErrNotFound
 	}
 
 	return nil
@@ -170,7 +169,7 @@ func (r *PostgresTenantRepository) Delete(ctx context.Context, id string) error 
 	}
 
 	if cmdTag.RowsAffected() == 0 {
-		return exception.ErrNotFound
+		return model.ErrNotFound
 	}
 
 	return nil

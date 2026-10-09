@@ -3,15 +3,14 @@
 ## Purpose
 Manages SaaS organization workspaces (tenants), provisioning, lifecycle states (active, suspended), and tier/subscription mapping.
 
-## Planned Ports & Interfaces
-- **Ports (Domain)**:
-  - `TenantRepository`: Querying and mutating tenant records.
-  - `BillingGateway`: Provisioning customer billing profiles.
-- **Adapters**:
-  - `PostgresTenantRepository`: Persists tenant rows in PostgreSQL.
-- **Events Emitted**:
-  - `tenant.created`: When a new organization registers.
-  - `tenant.suspended`: When an organization is suspended.
+## Layout
+- `module.go`: Module entry point, wires `internal/repository` -> `internal/service` -> `internal/handler`.
+- `api/`: Public contract (`TenantCreatedTopic`, `TenantUpdatedTopic`).
+- `internal/model/`: Tenant entity, BaseModel, and domain errors.
+- `internal/service/`: Business use cases and `Repository` interface definition.
+- `internal/repository/`: `PostgresTenantRepository` implementing `service.Repository`.
+- `internal/handler/`: HTTP handlers and routing.
+- `migrations/`: Embedded SQL migrations.
 
 ## Multi-Tenancy Strategy Notes
 This starter kit defines the `tenantctx.Strategy` interface and implements the **Discriminator + Postgres RLS** pattern.

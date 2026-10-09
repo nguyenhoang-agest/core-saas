@@ -4,9 +4,9 @@ import (
 	"context"
 	"embed"
 
-	"github.com/example/core-backend/modules/tenant/adapters"
-	tenanthttp "github.com/example/core-backend/modules/tenant/http"
-	"github.com/example/core-backend/modules/tenant/service"
+	"github.com/example/core-backend/modules/tenant/internal/handler"
+	"github.com/example/core-backend/modules/tenant/internal/repository"
+	"github.com/example/core-backend/modules/tenant/internal/service"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/kernel"
 	"github.com/example/core-backend/pkg/migrate"
@@ -19,24 +19,23 @@ var migrationsFS embed.FS
 
 var _ kernel.Module = (*Module)(nil)
 
-// Module encapsulates the tenant management module.
 type Module struct {
 	pool    *pgxpool.Pool
 	bus     *eventbus.Bus
 	service service.ITenantService
-	handler *tenanthttp.Handler
+	handler *handler.Handler
 }
 
 func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
-	repo := adapters.NewPostgresTenantRepository(pool)
+	repo := repository.NewPostgresTenantRepository(pool)
 	svc := service.NewTenantService(repo, bus)
-	handler := tenanthttp.NewHandler(svc)
+	h := handler.NewHandler(svc)
 
 	return &Module{
 		pool:    pool,
 		bus:     bus,
 		service: svc,
-		handler: handler,
+		handler: h,
 	}
 }
 
