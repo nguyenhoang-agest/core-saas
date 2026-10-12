@@ -7,11 +7,12 @@ import (
 	"github.com/example/core-backend/modules/example/adapters"
 	"github.com/example/core-backend/modules/example/app"
 	exithttp "github.com/example/core-backend/modules/example/http"
+	"github.com/example/core-backend/pkg/db/router"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/kernel"
 	"github.com/example/core-backend/pkg/migrate"
 	"github.com/example/core-backend/pkg/tenantctx"
-	"github.com/go-chi/chi/v5"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -30,10 +31,20 @@ type Module struct {
 
 // New constructs and wires the example module dependencies explicitly.
 func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
+	return NewWithDBProvider(router.NewStaticDBProvider(pool), bus)
+}
+
+// NewWithDBProvider constructs the example module with dynamic DBProvider routing.
+func NewWithDBProvider(dbProvider router.DBProvider, bus *eventbus.Bus) *Module {
 	strategy := tenantctx.NewPostgresRLSStrategy()
-	repo := adapters.NewPostgresRepository(pool, strategy)
+	repo := adapters.NewPostgresRepositoryWithDBProvider(dbProvider, strategy)
 	service := app.NewService(repo, bus)
 	handler := exithttp.NewHandler(service)
+
+	var pool *pgxpool.Pool
+	if dbProvider != nil {
+		pool = dbProvider.GetDefaultPool()
+	}
 
 	return &Module{
 		pool:    pool,
@@ -48,11 +59,8 @@ func (m *Module) Name() string {
 	return "example"
 }
 
-// Register mounts the module HTTP endpoints under the given chi.Router.
-func (m *Module) Register(r chi.Router) error {
-	r.Route("/example", func(sub chi.Router) {
-		m.handler.RegisterRoutes(sub)
-	})
+// Register mounts the module HTTP endpoints under the given fiber.Router.
+func (m *Module) Register(r fiber.Router) error {
 	return nil
 }
 

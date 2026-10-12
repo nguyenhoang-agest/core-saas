@@ -9,7 +9,7 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 - **Go 1.27 & Pure Idiomatic Go**: Zero dynamic reflection or classpath scanning; explicit dependency injection.
 - **Modular Monolith**: Modules live in `modules/<name>` with strict hexagonal/clean isolation (`domain`, `app`, `adapters`, `http`, `migrations`).
 - **Microservice-Ready**: Demonstrates extracting any module into a standalone binary (`cmd/example-service`).
-- **Postgres RLS Multi-Tenancy**: Built-in discriminator tenant isolation enforced at the database layer via session configuration (`app.current_tenant_id`).
+- **Flexible Multi-Tenancy (Shared RLS & Database-per-tenant)**: Built-in discriminator tenant isolation via PostgreSQL Row-Level Security (`app.current_tenant_id`) alongside dynamic connection pool routing (`pkg/db/router`) for dedicated tenant databases.
 - **Per-Module Migrations**: Embedded Goose SQL migrations with isolated migration tables (`goose_version_<module>`).
 - **Typed In-Process Event Bus**: Pub/Sub leveraging Go generics for decoupled inter-module messaging.
 - **Generator Tooling**: 
@@ -30,9 +30,10 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 ├── pkg/                            # Shared infra (zero domain logic)
 │   ├── config/                     # YAML & environment loader
 │   ├── db/                         # pgxpool connection & transactions
+│   │   └── router/                 # Dynamic multi-tenant DB pool router
 │   ├── errors/                     # Structured errors with HTTP mappings
 │   ├── eventbus/                   # Typed generic pub/sub
-│   ├── httpx/                      # Chi router, /healthz, responses
+│   ├── httpx/                      # Fiber router, /healthz, responses
 │   ├── kernel/                     # Module interface contract
 │   ├── logger/                     # slog JSON logger
 │   ├── migrate/                    # Goose per-module runner
@@ -40,7 +41,7 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 ├── modules/
 │   ├── example/                    # The ONLY fleshed-out vertical slice
 │   ├── iam/                        # STUB: auth, users, sessions
-│   ├── tenant/                     # STUB: organizations, subscription state
+│   ├── tenant/                     # Workspaces, isolate_mode & DB routing catalog
 │   ├── notification/               # STUB: dispatcher port + log adapter
 │   ├── audit/                      # STUB: append-only audit trail
 │   └── _template/                  # Canonical generator template

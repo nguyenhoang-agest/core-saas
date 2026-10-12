@@ -67,6 +67,7 @@ Replaces monolithic provider blocks:
 - **Axios HTTP Client (`src/apis/axios-client.ts`)**: Automatically attaches `X-Tenant-ID` header to all outgoing API requests.
 - **Query Cache Isolation (`src/core/tenant/tenant-key.ts`)**: `tenantKey(tenantId, ['users', id])` prefixes all TanStack Query cache keys to prevent cross-tenant cache leakage in multi-tenant sessions.
 - **Dynamic Theming**: Tenant colors dynamically set CSS custom properties (`--primary-color`, `--border-radius`) and drive Ant Design's `theme.token`.
+- **Isolation Modes (`src/core/tenant/tenant-context.tsx`)**: `TenantConfig` carries `isolateMode: TenantIsolateMode` (`'shared' | 'schema' | 'dedicated'`) indicating the backend data isolation tier for the current workspace.
 
 ---
 

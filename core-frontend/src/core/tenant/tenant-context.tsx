@@ -10,20 +10,25 @@ export interface TenantTheme {
   colorError?: string;
 }
 
+export type TenantIsolateMode = 'shared' | 'schema' | 'dedicated';
+
 export interface TenantConfig {
   id: string;
   name: string;
   theme: TenantTheme;
+  isolateMode?: TenantIsolateMode;
 }
 
 export const DEFAULT_TENANT_CONFIG: TenantConfig = {
   id: 'default',
   name: 'Default Organization',
+  isolateMode: 'shared',
   theme: {
     colorPrimary: '#1677ff',
     borderRadius: 6,
   },
 };
+
 
 interface TenantContextValue {
   tenant: TenantConfig;

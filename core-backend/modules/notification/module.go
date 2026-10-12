@@ -10,7 +10,7 @@ import (
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/kernel"
 	"github.com/example/core-backend/pkg/migrate"
-	"github.com/go-chi/chi/v5"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,10 +44,7 @@ func (m *Module) Name() string {
 	return "notification"
 }
 
-func (m *Module) Register(r chi.Router) error {
-	r.Route("/notifications", func(sub chi.Router) {
-		m.handler.RegisterRoutes(sub)
-	})
+func (m *Module) Register(r fiber.Router) error {
 	return nil
 }
 

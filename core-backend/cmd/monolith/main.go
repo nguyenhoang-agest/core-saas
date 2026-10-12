@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -74,18 +72,10 @@ func main() {
 	// Register module routes
 	for _, m := range modules {
 		log.Info("registering routes for module", "module", m.Name())
-		if err := m.Register(server.Router); err != nil {
+		if err := m.Register(server.App); err != nil {
 			log.Error("failed to register module routes", "module", m.Name(), "error", err)
 			os.Exit(1)
 		}
-	}
-
-	httpServer := &http.Server{
-		Addr:         ":" + cfg.Server.Port,
-		Handler:      server.Router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
 	}
 
 	// Graceful shutdown
@@ -93,20 +83,16 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := server.App.Listen(":" + cfg.Server.Port); err != nil {
 			log.Error("http server failed", "error", err)
-			os.Exit(1)
 		}
 	}()
 
-	log.Info("server listening", "addr", httpServer.Addr)
+	log.Info("server listening", "port", cfg.Server.Port)
 	<-sigChan
 	log.Info("shutting down gracefully...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+	if err := server.App.ShutdownWithTimeout(10 * time.Second); err != nil {
 		log.Error("server forced to shutdown", "error", err)
 	}
 

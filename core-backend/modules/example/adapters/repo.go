@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/example/core-backend/modules/example/domain"
+	"github.com/example/core-backend/pkg/db/router"
 	pkgerrors "github.com/example/core-backend/pkg/errors"
 	"github.com/example/core-backend/pkg/tenantctx"
 	"github.com/jackc/pgx/v5"
@@ -14,21 +15,38 @@ import (
 
 // PostgresRepository implements domain.Repository with pgx and tenant strategy enforcement.
 type PostgresRepository struct {
-	pool     *pgxpool.Pool
-	strategy tenantctx.Strategy
+	dbProvider router.DBProvider
+	strategy   tenantctx.Strategy
 }
 
-// NewPostgresRepository constructs a new PostgresRepository.
+// NewPostgresRepository constructs a new PostgresRepository with a static pool.
 func NewPostgresRepository(pool *pgxpool.Pool, strategy tenantctx.Strategy) *PostgresRepository {
+	return NewPostgresRepositoryWithDBProvider(router.NewStaticDBProvider(pool), strategy)
+}
+
+// NewPostgresRepositoryWithDBProvider constructs a new PostgresRepository with dynamic DBProvider.
+func NewPostgresRepositoryWithDBProvider(dbProvider router.DBProvider, strategy tenantctx.Strategy) *PostgresRepository {
 	return &PostgresRepository{
-		pool:     pool,
-		strategy: strategy,
+		dbProvider: dbProvider,
+		strategy:   strategy,
 	}
+}
+
+func (r *PostgresRepository) getPool(ctx context.Context) (*pgxpool.Pool, error) {
+	if r.dbProvider == nil {
+		return nil, fmt.Errorf("database provider is not initialized")
+	}
+	return r.dbProvider.GetPool(ctx)
 }
 
 // Create inserts a new item record.
 func (r *PostgresRepository) Create(ctx context.Context, item *domain.Item) error {
-	tx, err := r.pool.Begin(ctx)
+	pool, err := r.getPool(ctx)
+	if err != nil {
+		return fmt.Errorf("resolving db pool: %w", err)
+	}
+
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("starting tx: %w", err)
 	}
@@ -54,7 +72,12 @@ func (r *PostgresRepository) Create(ctx context.Context, item *domain.Item) erro
 
 // GetByID retrieves a single item scoped to the tenant.
 func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*domain.Item, error) {
-	tx, err := r.pool.Begin(ctx)
+	pool, err := r.getPool(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("resolving db pool: %w", err)
+	}
+
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("starting tx: %w", err)
 	}
@@ -94,7 +117,12 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*domain.It
 
 // List returns items scoped to the active tenant.
 func (r *PostgresRepository) List(ctx context.Context) ([]domain.Item, error) {
-	tx, err := r.pool.Begin(ctx)
+	pool, err := r.getPool(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("resolving db pool: %w", err)
+	}
+
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("starting tx: %w", err)
 	}

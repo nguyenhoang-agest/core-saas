@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/example/core-backend/modules/tenant/api"
+	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/pkg/eventbus"
 )
@@ -18,7 +19,7 @@ type Repository interface {
 }
 
 type ITenantService interface {
-	Create(ctx context.Context, req *CreateTenantRequest) (*model.Tenant, error)
+	Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error)
 	GetByID(ctx context.Context, id string) (*model.Tenant, error)
 }
 
@@ -34,7 +35,7 @@ func NewTenantService(tenantRepository Repository, bus *eventbus.Bus) ITenantSer
 	}
 }
 
-func (t *tenantService) Create(ctx context.Context, req *CreateTenantRequest) (*model.Tenant, error) {
+func (t *tenantService) Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
 	if req == nil || strings.TrimSpace(req.Name) == "" {
 		return nil, model.ErrInvalidInput
 	}
@@ -46,10 +47,36 @@ func (t *tenantService) Create(ctx context.Context, req *CreateTenantRequest) (*
 		return nil, model.ErrAlreadyExists
 	}
 
+	isolateMode := req.IsolateMode
+	if isolateMode == "" {
+		isolateMode = model.IsolateModeShared
+	} else if !isolateMode.IsValid() {
+		return nil, model.ErrInvalidInput
+	}
+
+	var dbConfig *model.TenantDBConfig
+	if isolateMode == model.IsolateModeDedicated {
+		if req.DBConfig == nil || strings.TrimSpace(req.DBConfig.DSN) == "" {
+			return nil, model.ErrInvalidInput
+		}
+		dbConfig = &model.TenantDBConfig{
+			DSN:      strings.TrimSpace(req.DBConfig.DSN),
+			MaxConns: req.DBConfig.MaxConns,
+			SSLMode:  strings.TrimSpace(req.DBConfig.SSLMode),
+		}
+		if dbConfig.MaxConns <= 0 {
+			dbConfig.MaxConns = 10
+		}
+	} else if req.DBConfig != nil {
+		dbConfig = req.DBConfig
+	}
+
 	tenant := &model.Tenant{
 		Name:        name,
 		Description: strings.TrimSpace(req.Description),
 		Status:      model.StatusActive,
+		IsolateMode: isolateMode,
+		DBConfig:    dbConfig,
 	}
 
 	if err := t.tenantRepository.Create(ctx, tenant); err != nil {

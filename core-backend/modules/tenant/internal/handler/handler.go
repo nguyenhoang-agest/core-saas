@@ -2,12 +2,13 @@ package handler
 
 import (
 	"errors"
-	"net/http"
+	"strings"
 
+	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/service"
 	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/httpx"
-	"github.com/go-chi/chi/v5"
+	"github.com/gofiber/fiber/v3"
 )
 
 type Handler struct {
@@ -18,44 +19,47 @@ func NewHandler(service service.ITenantService) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Post("/", h.create)
-	r.Get("/{id}", h.getByID)
+func (h *Handler) RegisterRoutes(r fiber.Router) {
+	r.Post("/", h.Create)
+	r.Get("/:id", h.GetByID)
 }
 
-func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
-	var input service.CreateTenantRequest
-	if err := httpx.DecodeJSON(r, &input); err != nil {
-		httpx.ErrorCode(w, response_code.InvalidPayload)
-		return
+func (h *Handler) Create(c fiber.Ctx) error {
+	var input dto.CreateTenantRequest
+	if err := c.Bind().Body(&input); err != nil {
+		return h.handleError(c, response_code.InvalidPayload)
 	}
 
-	tenant, err := h.service.Create(r.Context(), &input)
+	if strings.TrimSpace(input.Name) == "" {
+		return h.handleError(c, response_code.TenantNameRequired)
+	}
+
+	tenant, err := h.service.Create(c.Context(), &input)
 	if err != nil {
-		h.handleError(w, err)
-		return
+		return h.handleError(c, err)
 	}
 
-	httpx.Success(w, http.StatusCreated, tenant)
+	return c.Status(fiber.StatusCreated).JSON(httpx.NewResponse(tenant))
 }
 
-func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	tenant, err := h.service.GetByID(r.Context(), id)
+func (h *Handler) GetByID(c fiber.Ctx) error {
+	id := c.Params("id")
+	tenant, err := h.service.GetByID(c.Context(), id)
 	if err != nil {
-		h.handleError(w, err)
-		return
+		return h.handleError(c, err)
 	}
 
-	httpx.Success(w, http.StatusOK, tenant)
+	return c.Status(fiber.StatusOK).JSON(httpx.NewResponse(tenant))
 }
 
-func (h *Handler) handleError(w http.ResponseWriter, err error) {
+func (h *Handler) handleError(c fiber.Ctx, err error) error {
 	var respCode response_code.IResponseCode
 	if errors.As(err, &respCode) {
-		httpx.ErrorCode(w, respCode)
-		return
+		return c.Status(respCode.HTTPStatus()).JSON(httpx.NewResponseError(respCode.Code(), nil))
 	}
 
-	httpx.ErrorCode(w, response_code.InternalServerGeneral)
+	return c.Status(response_code.InternalServerGeneral.HTTPStatus()).JSON(
+		httpx.NewResponseError(response_code.InternalServerGeneral.Code(), nil),
+	)
 }
+
