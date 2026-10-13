@@ -6,14 +6,12 @@ import (
 	"time"
 )
 
-// Standard isolation modes
 const (
 	IsolateModeShared    = "shared"
 	IsolateModeSchema    = "schema"
 	IsolateModeDedicated = "dedicated"
 )
 
-// TenantRouteInfo carries routing and connection attributes for a tenant.
 type TenantRouteInfo struct {
 	TenantID    string
 	IsolateMode string
@@ -21,7 +19,6 @@ type TenantRouteInfo struct {
 	MaxConns    int32
 }
 
-// TenantResolver resolves routing information for a given tenant ID.
 type TenantResolver interface {
 	ResolveTenant(ctx context.Context, tenantID string) (*TenantRouteInfo, error)
 }
@@ -31,7 +28,6 @@ type cachedItem struct {
 	expiresAt time.Time
 }
 
-// CachedTenantResolver wraps another TenantResolver with in-memory TTL caching.
 type CachedTenantResolver struct {
 	underlying TenantResolver
 	ttl        time.Duration
@@ -39,7 +35,6 @@ type CachedTenantResolver struct {
 	cache      map[string]cachedItem
 }
 
-// NewCachedTenantResolver constructs a CachedTenantResolver with the specified TTL.
 func NewCachedTenantResolver(underlying TenantResolver, ttl time.Duration) *CachedTenantResolver {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute
@@ -51,7 +46,6 @@ func NewCachedTenantResolver(underlying TenantResolver, ttl time.Duration) *Cach
 	}
 }
 
-// ResolveTenant returns cached routing info if valid, otherwise delegates to underlying.
 func (c *CachedTenantResolver) ResolveTenant(ctx context.Context, tenantID string) (*TenantRouteInfo, error) {
 	now := time.Now()
 

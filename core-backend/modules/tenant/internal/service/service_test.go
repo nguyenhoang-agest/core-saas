@@ -2,11 +2,14 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/example/core-backend/modules/tenant/internal/dto"
+	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/exceptions"
 )
 
 type mockRepository struct {
@@ -65,8 +68,9 @@ func TestService_Create_InvalidIsolateMode(t *testing.T) {
 	}
 
 	_, err := svc.Create(context.Background(), req)
-	if err != model.ErrInvalidInput {
-		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	var badReqErr exceptions.BadRequestError
+	if !errors.As(err, &badReqErr) || badReqErr.MessageCode != errcode.InvalidIsolateMode.Code() {
+		t.Fatalf("expected BadRequestError with InvalidIsolateMode (%s), got %v", errcode.InvalidIsolateMode.Code(), err)
 	}
 }
 
@@ -80,15 +84,16 @@ func TestService_Create_Dedicated_MissingDSN(t *testing.T) {
 	}
 
 	_, err := svc.Create(context.Background(), req)
-	if err != model.ErrInvalidInput {
-		t.Fatalf("expected ErrInvalidInput when DSN is missing, got %v", err)
+	var badReqErr exceptions.BadRequestError
+	if !errors.As(err, &badReqErr) || badReqErr.MessageCode != errcode.MissingDedicatedDBConfig.Code() {
+		t.Fatalf("expected MissingDedicatedDBConfig (%s) when DSN is missing, got %v", errcode.MissingDedicatedDBConfig.Code(), err)
 	}
 
 	// Also test empty DSN string
 	req.DBConfig = &model.TenantDBConfig{DSN: "  "}
 	_, err = svc.Create(context.Background(), req)
-	if err != model.ErrInvalidInput {
-		t.Fatalf("expected ErrInvalidInput when DSN is empty whitespace, got %v", err)
+	if !errors.As(err, &badReqErr) || badReqErr.MessageCode != errcode.MissingDedicatedDBConfig.Code() {
+		t.Fatalf("expected MissingDedicatedDBConfig (%s) when DSN is empty whitespace, got %v", errcode.MissingDedicatedDBConfig.Code(), err)
 	}
 }
 

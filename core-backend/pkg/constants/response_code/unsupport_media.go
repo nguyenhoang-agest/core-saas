@@ -1,18 +1,24 @@
 package response_code
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/example/core-backend/pkg/exceptions/err_type"
+)
 
 type UnsupportedMediaCode int
 
+// UnsupportedMedia response code: E08****
 const (
 	_ UnsupportedMediaCode = iota
 	UnsupportedMediaTypeGeneral
 	InvalidContentType
 	UnsupportedFileExtension
+	// ONLY APPEND ERROR CODE
 )
 
 func (c UnsupportedMediaCode) Code() string {
-	return FormatCode(9, int(c))
+	return FormatCode(err_type.UnsupportedMediaError, int(c))
 }
 
 func (c UnsupportedMediaCode) Error() string {

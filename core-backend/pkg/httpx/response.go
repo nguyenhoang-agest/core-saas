@@ -2,11 +2,11 @@ package httpx
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/example/core-backend/pkg/constants/response_code"
 	pkgerrors "github.com/example/core-backend/pkg/errors"
+	"github.com/example/core-backend/pkg/exceptions"
 )
 
 func JSON(w http.ResponseWriter, status int, data any) {
@@ -19,18 +19,9 @@ func Success[T any](w http.ResponseWriter, status int, data T) {
 	JSON(w, status, NewResponse(data))
 }
 
-func ErrorCode(w http.ResponseWriter, code response_code.IResponseCode) {
-	JSON(w, code.HTTPStatus(), NewResponseError(code.Code(), nil))
-}
-
-func ErrorWithDetails(w http.ResponseWriter, code response_code.IResponseCode, details []FieldErrorDetail) {
-	JSON(w, code.HTTPStatus(), NewResponseError(code.Code(), details))
-}
-
 func Error(w http.ResponseWriter, err error) {
-	var respCode response_code.IResponseCode
-	if errors.As(err, &respCode) {
-		ErrorCode(w, respCode)
+	if customErr, ok := err.(exceptions.CustomError); ok {
+		JSON(w, customErr.StatusCode(), customErr.Json())
 		return
 	}
 
@@ -39,13 +30,13 @@ func Error(w http.ResponseWriter, err error) {
 		return
 	}
 
-	ErrorCode(w, response_code.InternalServerGeneral)
+	JSON(w, http.StatusInternalServerError, NewResponseError(response_code.InternalServerGeneral.Code(), nil))
 }
 
 func DecodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(target); err != nil {
-		return response_code.InvalidPayload
+		return exceptions.NewBadRequestError(response_code.BadRequestValidation, nil)
 	}
 	return nil
 }

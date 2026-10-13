@@ -36,7 +36,11 @@ type Tenant struct {
 	Description string          `gorm:"column:description;type:varchar(255)" json:"description"`
 	Status      Status          `gorm:"column:status;type:varchar(50);not null" json:"status"`
 	IsolateMode IsolateMode     `gorm:"column:isolate_mode;type:varchar(50);not null" json:"isolate_mode"`
-	DBConfig    *TenantDBConfig `gorm:"column:db_config;type:jsonb" json:"db_config,omitempty"`
+	DBConfig    *TenantDBConfig `gorm:"column:db_config;type:jsonb;serializer:json" json:"db_config,omitempty"`
+}
+
+func (Tenant) TableName() string {
+	return "tenants"
 }
 
 func (t *Tenant) IsActive() bool {

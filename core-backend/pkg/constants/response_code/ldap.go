@@ -1,19 +1,25 @@
 package response_code
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/example/core-backend/pkg/exceptions/err_type"
+)
 
 type LDAPCode int
 
+// LDAP response code: E10****
 const (
 	_ LDAPCode = iota
 	LDAPGeneralError
 	LDAPBindFailed
 	LDAPUserNotFound
 	LDAPConnectionFailed
+	// ONLY APPEND ERROR CODE
 )
 
 func (c LDAPCode) Code() string {
-	return FormatCode(6, int(c))
+	return FormatCode(err_type.LDAPError, int(c))
 }
 
 func (c LDAPCode) Error() string {

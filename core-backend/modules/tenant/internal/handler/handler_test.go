@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/example/core-backend/modules/tenant/internal/dto"
+	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/handler"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/pkg/constants/response_code"
+	"github.com/example/core-backend/pkg/exceptions"
 	"github.com/example/core-backend/pkg/httpx"
 	"github.com/gofiber/fiber/v3"
 )
@@ -38,7 +40,10 @@ func (m *mockTenantService) GetByID(ctx context.Context, id string) (*model.Tena
 }
 
 func setupTestApp(svc *mockTenantService) *fiber.App {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler:    httpx.ErrorHandlerFnc,
+		StructValidator: httpx.NewStructValidator(),
+	})
 	h := handler.NewHandler(svc)
 	h.RegisterRoutes(app)
 	return app
@@ -116,13 +121,47 @@ func TestCreateTenant_InvalidJSON(t *testing.T) {
 		t.Fatalf("failed to parse error response: %v", err)
 	}
 
-	if errResp.MessageCode != response_code.InvalidPayload.Code() {
-		t.Fatalf("expected code %s, got %s", response_code.InvalidPayload.Code(), errResp.MessageCode)
+	if errResp.MessageCode != response_code.BadRequestValidation.Code() {
+		t.Fatalf("expected code %s, got %s", response_code.BadRequestValidation.Code(), errResp.MessageCode)
+	}
+}
+
+func TestCreateTenant_ValidationError(t *testing.T) {
+	mockSvc := &mockTenantService{}
+	app := setupTestApp(mockSvc)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":""}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d", resp.StatusCode)
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var errResp httpx.ResponseError
+	if err := json.Unmarshal(respBody, &errResp); err != nil {
+		t.Fatalf("failed to parse error response: %v", err)
+	}
+
+	if errResp.MessageCode != response_code.CommonError.Code() {
+		t.Fatalf("expected code %s, got %s", response_code.CommonError.Code(), errResp.MessageCode)
+	}
+	if len(errResp.ErrorDetail) == 0 || errResp.ErrorDetail[0].Field != "name" {
+		t.Fatalf("expected field validation error on 'name', got %+v", errResp.ErrorDetail)
 	}
 }
 
 func TestCreateTenant_EmptyName(t *testing.T) {
-	mockSvc := &mockTenantService{}
+	mockSvc := &mockTenantService{
+		createFunc: func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
+			return nil, exceptions.NewBadRequestError(errcode.TenantNameRequired, nil)
+		},
+	}
 	app := setupTestApp(mockSvc)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"   "}`))
@@ -143,8 +182,8 @@ func TestCreateTenant_EmptyName(t *testing.T) {
 		t.Fatalf("failed to parse error response: %v", err)
 	}
 
-	if errResp.MessageCode != response_code.TenantNameRequired.Code() {
-		t.Fatalf("expected code %s, got %s", response_code.TenantNameRequired.Code(), errResp.MessageCode)
+	if errResp.MessageCode != errcode.TenantNameRequired.Code() {
+		t.Fatalf("expected code %s, got %s", errcode.TenantNameRequired.Code(), errResp.MessageCode)
 	}
 }
 
@@ -182,7 +221,7 @@ func TestGetByID_Success(t *testing.T) {
 func TestGetByID_NotFound(t *testing.T) {
 	mockSvc := &mockTenantService{
 		getByIDFunc: func(ctx context.Context, id string) (*model.Tenant, error) {
-			return nil, model.ErrNotFound
+			return nil, exceptions.NewNotFoundError(errcode.NotFoundTenant)
 		},
 	}
 
@@ -204,8 +243,8 @@ func TestGetByID_NotFound(t *testing.T) {
 		t.Fatalf("failed to parse error response: %v", err)
 	}
 
-	if errResp.MessageCode != response_code.NotFoundTenant.Code() {
-		t.Fatalf("expected code %s, got %s", response_code.NotFoundTenant.Code(), errResp.MessageCode)
+	if errResp.MessageCode != errcode.NotFoundTenant.Code() {
+		t.Fatalf("expected code %s, got %s", errcode.NotFoundTenant.Code(), errResp.MessageCode)
 	}
 }
 
@@ -264,4 +303,3 @@ func TestCreateTenant_DedicatedMode(t *testing.T) {
 		t.Fatalf("expected status 201 Created, got %d", resp.StatusCode)
 	}
 }
-

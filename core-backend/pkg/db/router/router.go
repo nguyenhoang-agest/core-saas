@@ -11,34 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// DBProvider abstracts database connection pool retrieval across multi-tenant modes.
 type DBProvider interface {
 	GetPool(ctx context.Context) (*pgxpool.Pool, error)
 	GetDefaultPool() *pgxpool.Pool
 	Close()
 }
 
-// StaticDBProvider wraps a single connection pool without dynamic routing.
 type StaticDBProvider struct {
 	pool *pgxpool.Pool
 }
 
-// NewStaticDBProvider constructs a StaticDBProvider.
 func NewStaticDBProvider(pool *pgxpool.Pool) *StaticDBProvider {
 	return &StaticDBProvider{pool: pool}
 }
 
-// GetPool always returns the underlying pool.
 func (s *StaticDBProvider) GetPool(ctx context.Context) (*pgxpool.Pool, error) {
 	return s.pool, nil
 }
 
-// GetDefaultPool returns the underlying pool.
 func (s *StaticDBProvider) GetDefaultPool() *pgxpool.Pool {
 	return s.pool
 }
 
-// Close closes the underlying pool if not nil.
 func (s *StaticDBProvider) Close() {
 	if s.pool != nil {
 		s.pool.Close()

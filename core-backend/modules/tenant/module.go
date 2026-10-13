@@ -7,6 +7,7 @@ import (
 	"github.com/example/core-backend/modules/tenant/internal/handler"
 	"github.com/example/core-backend/modules/tenant/internal/repository"
 	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/db"
 	"github.com/example/core-backend/pkg/db/router"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/kernel"
@@ -28,7 +29,8 @@ type Module struct {
 }
 
 func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
-	repo := repository.NewPostgresTenantRepository(pool)
+	gormDB, _ := db.NewGorm(pool)
+	repo := repository.NewPostgresTenantRepository(gormDB)
 	svc := service.NewTenantService(repo, bus)
 	h := handler.NewHandler(svc)
 

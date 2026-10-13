@@ -2,12 +2,19 @@ package service
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/example/core-backend/modules/tenant/api"
 	"github.com/example/core-backend/modules/tenant/internal/dto"
+	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/model"
+	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/eventbus"
+	"github.com/example/core-backend/pkg/exceptions"
+	"github.com/jackc/pgx/v5/pgconn"
+	"gorm.io/gorm"
 )
 
 type Repository interface {
@@ -37,27 +44,31 @@ func NewTenantService(tenantRepository Repository, bus *eventbus.Bus) ITenantSer
 
 func (t *tenantService) Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
 	if req == nil || strings.TrimSpace(req.Name) == "" {
-		return nil, model.ErrInvalidInput
+		return nil, exceptions.NewBadRequestError(errcode.TenantNameRequired, nil)
 	}
 
 	name := strings.TrimSpace(req.Name)
 
 	existing, err := t.tenantRepository.GetTenantByName(ctx, name)
-	if err == nil && existing != nil {
-		return nil, model.ErrAlreadyExists
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		slog.ErrorContext(ctx, "failed to get tenant by name", "name", name, "error", err)
+		return nil, exceptions.NewInternalServerError(errcode.FailToCreateTenant)
+	}
+	if existing != nil {
+		return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
 	}
 
 	isolateMode := req.IsolateMode
 	if isolateMode == "" {
 		isolateMode = model.IsolateModeShared
 	} else if !isolateMode.IsValid() {
-		return nil, model.ErrInvalidInput
+		return nil, exceptions.NewBadRequestError(errcode.InvalidIsolateMode, nil)
 	}
 
 	var dbConfig *model.TenantDBConfig
 	if isolateMode == model.IsolateModeDedicated {
 		if req.DBConfig == nil || strings.TrimSpace(req.DBConfig.DSN) == "" {
-			return nil, model.ErrInvalidInput
+			return nil, exceptions.NewBadRequestError(errcode.MissingDedicatedDBConfig, nil)
 		}
 		dbConfig = &model.TenantDBConfig{
 			DSN:      strings.TrimSpace(req.DBConfig.DSN),
@@ -80,7 +91,15 @@ func (t *tenantService) Create(ctx context.Context, req *dto.CreateTenantRequest
 	}
 
 	if err := t.tenantRepository.Create(ctx, tenant); err != nil {
-		return nil, err
+		slog.ErrorContext(ctx, "failed to create tenant", "name", name, "error", err)
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
+		}
+		return nil, exceptions.NewInternalServerError(errcode.FailToCreateTenant)
 	}
 
 	if t.bus != nil {
@@ -92,15 +111,19 @@ func (t *tenantService) Create(ctx context.Context, req *dto.CreateTenantRequest
 
 func (t *tenantService) GetByID(ctx context.Context, id string) (*model.Tenant, error) {
 	if strings.TrimSpace(id) == "" {
-		return nil, model.ErrInvalidInput
+		return nil, exceptions.NewBadRequestError(response_code.InvalidParameter, nil)
 	}
 
 	tenant, err := t.tenantRepository.GetTenantByID(ctx, id)
 	if err != nil {
-		return nil, err
+		slog.ErrorContext(ctx, "failed to get tenant by id", "id", id, "error", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, exceptions.NewNotFoundError(errcode.NotFoundTenant)
+		}
+		return nil, exceptions.NewInternalServerError(errcode.FailToGetTenant)
 	}
 	if tenant == nil {
-		return nil, model.ErrNotFound
+		return nil, exceptions.NewNotFoundError(errcode.NotFoundTenant)
 	}
 
 	return tenant, nil

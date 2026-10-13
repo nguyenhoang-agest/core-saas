@@ -1,16 +1,9 @@
 package httpx
 
-type FieldErrorDetail struct {
-	Field       string `json:"field,omitempty"`
-	DataError   any    `json:"data_error,omitempty"`
-	MessageCode string `json:"message_code,omitempty"`
-}
+import "github.com/example/core-backend/pkg/exceptions"
 
-type ResponseError struct {
-	Status      string             `json:"status"`
-	MessageCode string             `json:"message_code"`
-	ErrorDetail []FieldErrorDetail `json:"error_detail,omitempty"`
-}
+type FieldErrorDetail = exceptions.FieldErrorDetail
+type ResponseError = exceptions.ResponseError
 
 type Response struct {
 	Status string `json:"status,omitempty"`

@@ -1,20 +1,24 @@
 package response_code
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/example/core-backend/pkg/exceptions/err_type"
+)
 
 type ForbiddenCode int
 
+// Forbidden response code: E06****
 const (
 	_ ForbiddenCode = iota
 	ForbiddenGeneral
 	AccessDenied
 	InsufficientPermission
-	TenantSuspended
-	TenantAccessDenied
+	// ONLY APPEND ERROR CODE
 )
 
 func (c ForbiddenCode) Code() string {
-	return FormatCode(2, int(c))
+	return FormatCode(err_type.ForbiddenError, int(c))
 }
 
 func (c ForbiddenCode) Error() string {

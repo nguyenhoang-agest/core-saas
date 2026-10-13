@@ -1,12 +1,11 @@
 package handler
 
 import (
-	"errors"
-	"strings"
+	"log/slog"
 
 	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/service"
-	"github.com/example/core-backend/pkg/constants/response_code"
+	"github.com/example/core-backend/pkg/helpers"
 	"github.com/example/core-backend/pkg/httpx"
 	"github.com/gofiber/fiber/v3"
 )
@@ -27,16 +26,14 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 func (h *Handler) Create(c fiber.Ctx) error {
 	var input dto.CreateTenantRequest
 	if err := c.Bind().Body(&input); err != nil {
-		return h.handleError(c, response_code.InvalidPayload)
-	}
-
-	if strings.TrimSpace(input.Name) == "" {
-		return h.handleError(c, response_code.TenantNameRequired)
+		slog.ErrorContext(c.Context(), "Body validation error", "error", err)
+		return helpers.ValidationErrorFromBind(err, input)
 	}
 
 	tenant, err := h.service.Create(c.Context(), &input)
 	if err != nil {
-		return h.handleError(c, err)
+		slog.ErrorContext(c.Context(), "Error during create Tenant", "error", err)
+		return err
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(httpx.NewResponse(tenant))
@@ -46,20 +43,8 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 	id := c.Params("id")
 	tenant, err := h.service.GetByID(c.Context(), id)
 	if err != nil {
-		return h.handleError(c, err)
+		return err
 	}
 
 	return c.Status(fiber.StatusOK).JSON(httpx.NewResponse(tenant))
 }
-
-func (h *Handler) handleError(c fiber.Ctx, err error) error {
-	var respCode response_code.IResponseCode
-	if errors.As(err, &respCode) {
-		return c.Status(respCode.HTTPStatus()).JSON(httpx.NewResponseError(respCode.Code(), nil))
-	}
-
-	return c.Status(response_code.InternalServerGeneral.HTTPStatus()).JSON(
-		httpx.NewResponseError(response_code.InternalServerGeneral.Code(), nil),
-	)
-}
-

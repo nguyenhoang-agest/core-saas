@@ -11,10 +11,8 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 )
 
-// HealthCheck is a function that reports component health.
 type HealthCheck func(ctx context.Context) error
 
-// Server wraps fiber.App and provides health check registration.
 type Server struct {
 	App      *fiber.App
 	logger   *slog.Logger
@@ -22,14 +20,16 @@ type Server struct {
 	checkers map[string]HealthCheck
 }
 
-// NewServer creates a fiber app configured with standard middlewares and /healthz.
 func NewServer(logger *slog.Logger) *Server {
 	s := &Server{
 		logger:   logger,
 		checkers: make(map[string]HealthCheck),
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler:    ErrorHandlerFnc,
+		StructValidator: NewStructValidator(),
+	})
 	app.Use(recover.New())
 	app.Use(RequestLogger(logger))
 
@@ -39,7 +39,6 @@ func NewServer(logger *slog.Logger) *Server {
 	return s
 }
 
-// RegisterHealthCheck adds a named health check probe.
 func (s *Server) RegisterHealthCheck(name string, check HealthCheck) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -73,7 +72,6 @@ func (s *Server) handleHealthz(c fiber.Ctx) error {
 	})
 }
 
-// RequestLogger creates a middleware logging HTTP requests via slog.
 func RequestLogger(logger *slog.Logger) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		start := time.Now()
