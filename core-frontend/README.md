@@ -6,7 +6,7 @@ Designed as a single application repository with strict modular boundaries. Clon
 
 ---
 
-## ⚡ Tech Stack
+## Tech Stack
 
 - **Framework**: Next.js 16.4 (Turbopack, App Router, Edge Proxy request interception)
 - **UI Library**: Ant Design v6 with `@ant-design/nextjs-registry` and `@ant-design/cssinjs`
@@ -19,30 +19,40 @@ Designed as a single application repository with strict modular boundaries. Clon
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
-### 1. Initialize Project
+### 1. Environment Configuration
+From repository root:
 ```bash
-# Rename package and update branding defaults
-pnpm init-kit --name my-saas
-# or: npm run init-kit -- --name my-saas
-```
-
-### 2. Environment Configuration
-```bash
+make env
+# Or manually inside core-frontend:
 cp .env.example .env.local
 ```
 
-### 3. Install & Run
+### 2. Install & Run
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
+# Or from repository root:
+make dev-frontend
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📦 Creating Modules
+## UI & Design System
+
+The frontend strictly implements an **Outlined Minimalist / Flat 2.0 Monochrome UI**:
+- **Border-focused hierarchy**: Thin 1px borders (`border-neutral-200`) instead of heavy drop shadows (`shadow-none`).
+- **Monochrome Grayscale**: 100% grayscale palette (`bg-white`, `bg-neutral-50`, `text-neutral-900`), reserving status colors strictly for live indicators (e.g. green dot for active status).
+- **Internationalization (i18n)**:
+  - English (`en`) and Vietnamese (`vi`) with parameter interpolation: `useI18n().t('key', { param })`.
+  - Two-tier error resolution: Client dictionary lookup $\rightarrow$ Backend returned message $\rightarrow$ Fallback.
+  - Minimalist `LocaleSwitcher` on the topbar.
+
+---
+
+## Creating Modules
 
 ```bash
 # Scaffold a new domain module
@@ -54,7 +64,7 @@ Modules are self-contained in `src/modules/<name>/` and declared in `config/app.
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - [**Architecture Overview**](./docs/ARCHITECTURE.md): Deep-dive into core subsystems, extension points, slots, and multi-tenancy.
 - [**Adding a Module**](./docs/ADDING_A_MODULE.md): Guide for creating, implementing, and registering domain modules.
@@ -62,7 +72,7 @@ Modules are self-contained in `src/modules/<name>/` and declared in `config/app.
 
 ---
 
-## 🧪 Quality Verification
+## Quality Verification
 
 ```bash
 npx tsc --noEmit   # Strict TypeScript check

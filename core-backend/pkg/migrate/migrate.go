@@ -21,7 +21,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, moduleName string, fsys fs.FS,
 		return fmt.Errorf("setting goose dialect: %w", err)
 	}
 
-	tableName := fmt.Sprintf("goose_version_%s", moduleName)
+	tableName := fmt.Sprintf("_%s", moduleName)
 	goose.SetTableName(tableName)
 	goose.SetBaseFS(fsys)
 	defer goose.SetBaseFS(nil)

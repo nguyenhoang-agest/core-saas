@@ -20,7 +20,7 @@ import "github.com/example/core-backend/pkg/errors"
 if item == nil {
     return nil, errors.NotFound("item not found", nil)
 }
-if input.Name == "" {
+if opts.Name == "" {
     return nil, errors.InvalidArgument("name is required", nil)
 }
 ```

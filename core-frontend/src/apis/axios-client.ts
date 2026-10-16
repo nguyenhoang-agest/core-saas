@@ -14,6 +14,20 @@ export function getClientTenantId(): string {
   return 'default';
 }
 
+/**
+ * Extracts the locale from the document cookies in client-side runtime,
+ * or returns 'en' as fallback.
+ */
+export function getClientLocale(): string {
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|; )x-locale=([^;]*)/);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+  }
+  return 'en';
+}
+
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
   timeout: 15000,
@@ -28,6 +42,13 @@ apiClient.interceptors.request.use(
     if (tenantId) {
       config.headers['X-Tenant-ID'] = tenantId;
     }
+
+    const locale = getClientLocale();
+    if (locale) {
+      config.headers['Accept-Language'] = locale;
+      config.headers['X-Locale'] = locale;
+    }
+
     return config;
   },
   (error) => {

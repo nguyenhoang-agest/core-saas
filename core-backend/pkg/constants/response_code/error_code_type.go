@@ -14,12 +14,8 @@ type ResponseCode interface {
 }
 
 const (
-	ModuleCommonOffset       = 0
-	ModuleTenantOffset       = 1000
-	ModuleIAMOffset          = 2000
-	ModuleAuditOffset        = 3000
-	ModuleNotificationOffset = 4000
-	ModuleExampleOffset      = 5000
+	ModuleCommonOffset = 0
+	ModuleTenantOffset = 1000
 )
 
 func FormatCode(group int, code int) string {

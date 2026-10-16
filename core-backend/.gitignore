@@ -1,0 +1,23 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test and coverage artifacts
+*.out
+*.test
+coverage.txt
+
+# Environment configuration
+.env
+!.env.example
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store

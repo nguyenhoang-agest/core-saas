@@ -67,22 +67,23 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 
 ### 1. Initialize
 ```bash
-make init PROJECT=my-saas MODULE=github.com/my-org/my-saas KEEP=iam,tenant
+make env      # Generate .env from .env.example
 ```
 
 ### 2. Start PostgreSQL
 ```bash
-make up
+make db-up    # Starts container and waits for healthy status
 ```
 
 ### 3. Run Monolith
 ```bash
-make run
+make run      # Automatically runs migrations and starts on :8080
 ```
 
 ### 4. Verify
 ```bash
 curl http://localhost:8080/healthz
+# {"checks":{"database":"ok"},"status":"ok"}
 ```
 
 ---
@@ -91,16 +92,23 @@ curl http://localhost:8080/healthz
 
 | Command | Description |
 |---|---|
-| `make init` | Rename module and project path, prune unused stubs |
-| `make new-module NAME=<name>` | Scaffold a new module from `_template` |
-| `make build` | Compile all packages and binaries |
-| `make test` | Run tests with race detection |
-| `make lint` | Run `golangci-lint` |
+| `make env` | Create `.env` from template if missing |
+| `make db-up` (or `make up`) | Start local PostgreSQL 17 container in background |
+| `make db-down` (or `make down`) | Stop local PostgreSQL container |
+| `make db-status` | Check PostgreSQL container health |
+| `make db-logs` | View PostgreSQL container logs |
+| `make db-psql` | Open interactive `psql` session inside PostgreSQL container |
+| `make run` | Start the monolith locally on `http://localhost:8080` |
+| `make run-example` | Start the standalone example service on `http://localhost:8081` |
+| `make test` | Run tests with race detection (`go test -race ./...`) |
+| `make test-v` | Run tests with verbose output |
+| `make test-coverage` | Run tests and generate coverage report |
+| `make lint` | Run `golangci-lint` or fallback to `go vet` |
 | `make tidy` | Tidy Go dependencies |
-| `make run` | Start the monolith locally |
-| `make run-example` | Start the standalone example service |
-| `make up` | Start local PostgreSQL |
-| `make down` | Stop local PostgreSQL |
+| `make build` | Compile all packages and binaries into `bin/` |
+| `make clean` | Clean compiled binaries and test coverage profiles |
+| `make new-module NAME=<name>` | Scaffold a new module from `_template` |
+| `make init` | Rename module and project path, prune unused stubs |
 
 ---
 

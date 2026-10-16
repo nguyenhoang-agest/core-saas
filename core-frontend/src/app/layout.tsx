@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { PlatformProvider } from '@/core/providers/platform-provider';
-import { AppShell } from '@/components/app-shell';
+import { AdminShell } from '@/components/admin-shell';
 import { appConfig } from '@/../config/app.config';
 
 export const metadata: Metadata = {
-  title: appConfig.branding.appName,
+  title: `${appConfig.branding.appName} - Admin Console`,
   description: appConfig.branding.tagline,
 };
 
@@ -16,9 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-neutral-50/50 text-neutral-900 antialiased">
         <PlatformProvider modules={appConfig.enabledModules}>
-          <AppShell>{children}</AppShell>
+          <AdminShell>{children}</AdminShell>
         </PlatformProvider>
       </body>
     </html>

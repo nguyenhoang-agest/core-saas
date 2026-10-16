@@ -8,6 +8,7 @@ import (
 	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/pkg/db/router"
+	"github.com/example/core-backend/pkg/httpx"
 )
 
 type mockTenantService struct {
@@ -22,6 +23,10 @@ func (m *mockTenantService) GetByID(ctx context.Context, id string) (*model.Tena
 	if m.getByIDFunc != nil {
 		return m.getByIDFunc(ctx, id)
 	}
+	return nil, nil
+}
+
+func (m *mockTenantService) GetAllTenant(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error) {
 	return nil, nil
 }
 

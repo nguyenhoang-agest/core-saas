@@ -13,16 +13,19 @@ import (
 	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/handler"
+	_ "github.com/example/core-backend/modules/tenant/internal/locales"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/exceptions"
 	"github.com/example/core-backend/pkg/httpx"
+	"github.com/example/core-backend/pkg/i18n"
 	"github.com/gofiber/fiber/v3"
 )
 
 type mockTenantService struct {
-	createFunc  func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error)
-	getByIDFunc func(ctx context.Context, id string) (*model.Tenant, error)
+	createFunc       func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error)
+	getByIDFunc      func(ctx context.Context, id string) (*model.Tenant, error)
+	getAllTenantFunc func(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error)
 }
 
 func (m *mockTenantService) Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
@@ -39,11 +42,19 @@ func (m *mockTenantService) GetByID(ctx context.Context, id string) (*model.Tena
 	return nil, nil
 }
 
+func (m *mockTenantService) GetAllTenant(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error) {
+	if m.getAllTenantFunc != nil {
+		return m.getAllTenantFunc(ctx, req)
+	}
+	return nil, nil
+}
+
 func setupTestApp(svc *mockTenantService) *fiber.App {
 	app := fiber.New(fiber.Config{
 		ErrorHandler:    httpx.ErrorHandlerFnc,
 		StructValidator: httpx.NewStructValidator(),
 	})
+	app.Use(i18n.LocaleMiddleware())
 	h := handler.NewHandler(svc)
 	h.RegisterRoutes(app)
 	return app
@@ -301,5 +312,148 @@ func TestCreateTenant_DedicatedMode(t *testing.T) {
 
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected status 201 Created, got %d", resp.StatusCode)
+	}
+}
+
+func TestCreateTenant_LocalizedError_Vietnamese(t *testing.T) {
+	mockSvc := &mockTenantService{
+		createFunc: func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
+			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
+		},
+	}
+	app := setupTestApp(mockSvc)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"Existing Tenant"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Language", "vi-VN,vi;q=0.9")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("unexpected error making test request: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d", resp.StatusCode)
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var errResp httpx.ResponseError
+	if err := json.Unmarshal(respBody, &errResp); err != nil {
+		t.Fatalf("failed to parse error response: %v", err)
+	}
+
+	if errResp.MessageCode != errcode.TenantAlreadyExists.Code() {
+		t.Fatalf("expected code %s, got %s", errcode.TenantAlreadyExists.Code(), errResp.MessageCode)
+	}
+
+	expectedVi := "Tên Tenant này đã tồn tại trong hệ thống."
+	if errResp.Message != expectedVi {
+		t.Fatalf("expected localized message '%s', got '%s'", expectedVi, errResp.Message)
+	}
+}
+
+func TestCreateTenant_LocalizedError_English(t *testing.T) {
+	mockSvc := &mockTenantService{
+		createFunc: func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
+			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
+		},
+	}
+	app := setupTestApp(mockSvc)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"Existing Tenant"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("unexpected error making test request: %v", err)
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var errResp httpx.ResponseError
+	if err := json.Unmarshal(respBody, &errResp); err != nil {
+		t.Fatalf("failed to parse error response: %v", err)
+	}
+
+	expectedEn := "A tenant with this name already exists."
+	if errResp.Message != expectedEn {
+		t.Fatalf("expected localized message '%s', got '%s'", expectedEn, errResp.Message)
+	}
+}
+
+func TestListTenants_Success(t *testing.T) {
+	mockSvc := &mockTenantService{
+		getAllTenantFunc: func(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error) {
+			if req.Page != 2 {
+				t.Errorf("expected page 2, got %d", req.Page)
+			}
+			if req.PageSize != 10 {
+				t.Errorf("expected page_size 10, got %d", req.PageSize)
+			}
+			if req.Keyword != "acme" {
+				t.Errorf("expected keyword acme, got %s", req.Keyword)
+			}
+			res := httpx.NewPaginatedData([]model.Tenant{
+				{
+					BaseModel: model.BaseModel{Id: "tenant-1"},
+					Name:      "Acme Corp",
+					Status:    model.StatusActive,
+				},
+			}, 15, req.Page, req.PageSize)
+			return &res, nil
+		},
+	}
+
+	app := setupTestApp(mockSvc)
+
+	req := httptest.NewRequest(http.MethodGet, "/?page=2&page_size=10&keyword=acme", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("unexpected error making test request: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var apiResp struct {
+		Status string `json:"status"`
+		Data   struct {
+			Items      []model.Tenant       `json:"items"`
+			Pagination httpx.PaginationMeta `json:"pagination"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if apiResp.Status != "success" {
+		t.Errorf("expected status 'success', got '%s'", apiResp.Status)
+	}
+	if len(apiResp.Data.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(apiResp.Data.Items))
+	}
+	if apiResp.Data.Pagination.TotalItems != 15 {
+		t.Errorf("expected total_items 15, got %d", apiResp.Data.Pagination.TotalItems)
+	}
+	if apiResp.Data.Pagination.TotalPages != 2 {
+		t.Errorf("expected total_pages 2, got %d", apiResp.Data.Pagination.TotalPages)
+	}
+}
+
+func TestListTenants_InvalidStatusValidation(t *testing.T) {
+	mockSvc := &mockTenantService{}
+	app := setupTestApp(mockSvc)
+
+	req := httptest.NewRequest(http.MethodGet, "/?status=invalid_status", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("unexpected error making test request: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for invalid status query param, got %d", resp.StatusCode)
 	}
 }

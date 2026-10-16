@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/example/core-backend/pkg/i18n"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 )
@@ -31,6 +32,7 @@ func NewServer(logger *slog.Logger) *Server {
 		StructValidator: NewStructValidator(),
 	})
 	app.Use(recover.New())
+	app.Use(i18n.LocaleMiddleware())
 	app.Use(RequestLogger(logger))
 
 	app.Get("/healthz", s.handleHealthz)

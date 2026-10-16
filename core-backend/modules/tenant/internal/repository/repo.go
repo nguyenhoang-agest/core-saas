@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/db"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -117,4 +119,60 @@ func (r *PostgresTenantRepository) Delete(ctx context.Context, id string) error 
 	}
 
 	return nil
+}
+
+func (r *PostgresTenantRepository) GetAllTenant(ctx context.Context, req *dto.PaginationOptions) ([]model.Tenant, int64, error) {
+	if r.db == nil {
+		return nil, 0, fmt.Errorf("database connection is not initialized")
+	}
+
+	tx := r.db.WithContext(ctx).Model(&model.Tenant{}).Where("delete_at IS NULL")
+
+	if req != nil {
+		if req.Keyword != "" {
+			tx = tx.Where("name ILIKE ?", "%"+req.Keyword+"%")
+		}
+		if req.Status != "" {
+			tx = tx.Where("status = ?", req.Status)
+		}
+		if req.IsolateMode != "" {
+			tx = tx.Where("isolate_mode = ?", req.IsolateMode)
+		}
+	}
+
+	var total int64
+	if err := tx.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	sortBy := "create_at"
+	order := "desc"
+	offset := 0
+	limit := 20
+
+	if req != nil {
+		if req.SortBy == "name" {
+			sortBy = "name"
+		}
+		if req.Order == "asc" || req.Order == "desc" {
+			order = req.Order
+		}
+		offset = req.Offset()
+		limit = req.Limit()
+	}
+
+	tx = tx.Order(fmt.Sprintf("%s %s", sortBy, order))
+
+	var tenants []model.Tenant
+	if err := tx.Scopes(db.PaginateOffset(offset, limit)).Find(&tenants).Error; err != nil {
+		return nil, 0, err
+	}
+
+	for i := range tenants {
+		if tenants[i].IsolateMode == "" {
+			tenants[i].IsolateMode = model.IsolateModeShared
+		}
+	}
+
+	return tenants, total, nil
 }

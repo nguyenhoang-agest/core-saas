@@ -13,6 +13,7 @@ import (
 	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/exceptions"
+	"github.com/example/core-backend/pkg/httpx"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
@@ -23,11 +24,13 @@ type Repository interface {
 	GetTenantByName(ctx context.Context, name string) (*model.Tenant, error)
 	Update(ctx context.Context, tenant *model.Tenant) error
 	Delete(ctx context.Context, id string) error
+	GetAllTenant(ctx context.Context, req *dto.PaginationOptions) ([]model.Tenant, int64, error)
 }
 
 type ITenantService interface {
 	Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error)
 	GetByID(ctx context.Context, id string) (*model.Tenant, error)
+	GetAllTenant(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error)
 }
 
 type tenantService struct {
@@ -127,4 +130,20 @@ func (t *tenantService) GetByID(ctx context.Context, id string) (*model.Tenant, 
 	}
 
 	return tenant, nil
+}
+
+func (t *tenantService) GetAllTenant(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error) {
+	if req == nil {
+		req = &dto.PaginationOptions{}
+	}
+	req.Normalize()
+
+	tenants, total, err := t.tenantRepository.GetAllTenant(ctx, req)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list tenants", "error", err)
+		return nil, exceptions.NewInternalServerError(errcode.FailToGetTenant)
+	}
+
+	result := httpx.NewPaginatedData(tenants, total, req.Page, req.PageSize)
+	return &result, nil
 }

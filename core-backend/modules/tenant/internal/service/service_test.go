@@ -16,6 +16,8 @@ type mockRepository struct {
 	createdTenant   *model.Tenant
 	getByNameResult *model.Tenant
 	getByIDResult   *model.Tenant
+	listResult      []model.Tenant
+	listTotal       int64
 }
 
 func (m *mockRepository) Create(ctx context.Context, tenant *model.Tenant) error {
@@ -37,6 +39,13 @@ func (m *mockRepository) Update(ctx context.Context, tenant *model.Tenant) error
 
 func (m *mockRepository) Delete(ctx context.Context, id string) error {
 	return nil
+}
+
+func (m *mockRepository) GetAllTenant(ctx context.Context, req *dto.PaginationOptions) ([]model.Tenant, int64, error) {
+	if m.listResult != nil {
+		return m.listResult, m.listTotal, nil
+	}
+	return []model.Tenant{}, 0, nil
 }
 
 func TestService_Create_DefaultShared(t *testing.T) {
@@ -124,5 +133,46 @@ func TestService_Create_Dedicated_Success(t *testing.T) {
 
 	if tenant.DBConfig.MaxConns != 10 {
 		t.Fatalf("expected default MaxConns to be 10, got %d", tenant.DBConfig.MaxConns)
+	}
+}
+
+func TestService_List_Success(t *testing.T) {
+	expectedTenants := []model.Tenant{
+		{
+			BaseModel: model.BaseModel{Id: "t-1"},
+			Name:      "Acme Corp",
+			Status:    model.StatusActive,
+		},
+		{
+			BaseModel: model.BaseModel{Id: "t-2"},
+			Name:      "Beta Ltd",
+			Status:    model.StatusActive,
+		},
+	}
+
+	repo := &mockRepository{
+		listResult: expectedTenants,
+		listTotal:  2,
+	}
+	svc := service.NewTenantService(repo, nil)
+
+	req := &dto.PaginationOptions{}
+	result, err := svc.GetAllTenant(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(result.Items))
+	}
+
+	if result.Pagination.TotalItems != 2 {
+		t.Errorf("expected total_items 2, got %d", result.Pagination.TotalItems)
+	}
+	if result.Pagination.Page != 1 {
+		t.Errorf("expected default page 1, got %d", result.Pagination.Page)
+	}
+	if result.Pagination.PageSize != 20 {
+		t.Errorf("expected default page_size 20, got %d", result.Pagination.PageSize)
 	}
 }

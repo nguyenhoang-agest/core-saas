@@ -5,6 +5,7 @@ import (
 	"embed"
 
 	"github.com/example/core-backend/modules/tenant/internal/handler"
+	_ "github.com/example/core-backend/modules/tenant/internal/locales"
 	"github.com/example/core-backend/modules/tenant/internal/repository"
 	"github.com/example/core-backend/modules/tenant/internal/service"
 	"github.com/example/core-backend/pkg/db"
@@ -60,4 +61,3 @@ func (m *Module) Migrate(ctx context.Context) error {
 func (m *Module) Resolver() router.TenantResolver {
 	return NewTenantResolver(m.service)
 }
-

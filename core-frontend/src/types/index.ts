@@ -11,3 +11,6 @@ export interface UserProfile {
   name: string;
   image?: string;
 }
+
+export * from './pagination';
+

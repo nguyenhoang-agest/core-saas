@@ -11,7 +11,7 @@ Provides user lifecycle management, role-based access control (RBAC), invitation
 
 ## TODOs (Domain Implementation)
 - [ ] Connect with backend `/api/v1/iam/users` and `/api/v1/iam/roles` endpoints.
-- [ ] Implement User List table with pagination, search, and status badges.
+- [ ] Implement User GetAllTenant table with pagination, search, and status badges.
 - [ ] Implement Invite User modal form with email validation and role selector.
 - [ ] Implement Role & Permission matrix editor with `<Can>` guards for write operations.
 - [ ] Add session revocation and MFA status badges.

@@ -36,7 +36,7 @@ Implement outbound ports defined in domain:
 
 ### Step 2.4: HTTP Layer (`http/`)
 Expose inbound HTTP REST endpoints using Fiber:
-- Bind requests with `c.Bind().Body(&input)`.
+- Bind requests with `c.Bind().Body(&opts)`.
 - Extract tenant context with `tenantctx.FromContext(c.Context())`.
 - Return responses using `c.JSON(httpx.NewResponse(data))` or `httpx.NewResponseError(code, err)`.
 

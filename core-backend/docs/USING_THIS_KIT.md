@@ -12,31 +12,25 @@ git clone <starter-kit-url> my-saas-backend
 cd my-saas-backend
 ```
 
-### Step 2: Initialize Your Project
-Run the initialization generator to rename the Go module path, update project tokens, and optionally prune unused stubs:
+### Step 2: Configure Environment & Database
+Run the automated environment setup helper:
 
 ```bash
-make init PROJECT=my-saas MODULE=github.com/my-org/my-saas KEEP=iam,tenant
+make env      # Generates .env from .env.example
+make db-up    # Starts PostgreSQL 17 container and verifies readiness
+# Or simply run: ./scripts/setup-env.sh
 ```
 
-- `PROJECT`: Your application/binary name.
-- `MODULE`: Your new Go module import path.
-- `KEEP`: Comma-separated list of stub modules you want to keep (`iam`, `tenant`, `notification`, `audit`). Unlisted stubs are cleanly deleted and unregistered.
-
-### Step 3: Start Local Database
-```bash
-make up
-```
-This boots PostgreSQL 17 via `deploy/docker-compose.yml`.
-
-### Step 4: Run the Application
+### Step 3: Run the Application
 ```bash
 make run
 ```
-The monolith server will start on `http://localhost:8080`.
-Verify health check:
+The monolith server will automatically run all module migrations and listen on `http://localhost:8080`.
+
+Verify health check and database connectivity:
 ```bash
 curl http://localhost:8080/healthz
+# Response: {"checks":{"database":"ok"},"status":"ok"}
 ```
 
 ---

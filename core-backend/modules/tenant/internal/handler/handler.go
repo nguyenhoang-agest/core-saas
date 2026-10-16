@@ -20,6 +20,7 @@ func NewHandler(service service.ITenantService) *Handler {
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
 	r.Post("/", h.Create)
+	r.Get("/", h.GetAllTenant)
 	r.Get("/:id", h.GetByID)
 }
 
@@ -47,4 +48,19 @@ func (h *Handler) GetByID(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(httpx.NewResponse(tenant))
+}
+
+func (h *Handler) GetAllTenant(c fiber.Ctx) error {
+	var opts dto.PaginationOptions
+	if err := c.Bind().Query(&opts); err != nil {
+		slog.ErrorContext(c.Context(), "Query validation error", "error", err)
+		return helpers.ValidationErrorFromBind(err, opts)
+	}
+
+	result, err := h.service.GetAllTenant(c.Context(), &opts)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(httpx.NewResponse(result))
 }
