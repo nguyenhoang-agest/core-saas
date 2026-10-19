@@ -21,7 +21,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useTenants } from '../api/tenant-api';
+import { useTenants } from '@/modules/tenant';
 import { useTenant as useTenantContext } from '@/core/tenant/tenant-context';
 import { useI18n } from '@/core/i18n/i18n-context';
 import type { Tenant, TenantIsolateMode } from '../types/tenant';
@@ -31,10 +31,7 @@ interface TenantListTableProps {
   onProvisionClick?: () => void;
 }
 
-export function TenantListTable({
-  onInspectTenant,
-  onProvisionClick,
-}: TenantListTableProps) {
+export function TenantListTable({ onInspectTenant, onProvisionClick }: TenantListTableProps) {
   const { t } = useI18n();
   const { tenant: currentContextTenant, setTenant: setContextTenant } = useTenantContext();
 
@@ -78,8 +75,8 @@ export function TenantListTable({
     1,
     Number(
       pagination?.totalPages ??
-      pagination?.total_pages ??
-      (totalItems > 0 ? Math.ceil(totalItems / pageSize) : 1)
+        pagination?.total_pages ??
+        (totalItems > 0 ? Math.ceil(totalItems / pageSize) : 1)
     )
   );
 
@@ -149,7 +146,9 @@ export function TenantListTable({
               className="text-xs gap-1.5 h-8 text-neutral-700"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-              <span>{isFetching ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}</span>
+              <span>
+                {isFetching ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}
+              </span>
             </Button>
             {onProvisionClick && (
               <Button size="sm" onClick={onProvisionClick} className="text-xs gap-1.5 h-8">
@@ -227,9 +226,12 @@ export function TenantListTable({
             <div className="flex items-start gap-2.5">
               <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
               <div>
-                <div className="font-semibold">{t('tenant.inspect.failed', 'Failed to load tenants')}</div>
+                <div className="font-semibold">
+                  {t('tenant.inspect.failed', 'Failed to load tenants')}
+                </div>
                 <div className="text-red-700 mt-0.5">
-                  {(error as Error)?.message || 'An error occurred while communicating with the Go backend.'}
+                  {(error as Error)?.message ||
+                    'An error occurred while communicating with the Go backend.'}
                 </div>
               </div>
             </div>
@@ -519,7 +521,11 @@ export function TenantListTable({
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-neutral-500 mr-1">
-              {t('tenant.list.page', { current: page, total: totalPages }, `Page ${page} of ${totalPages}`)}
+              {t(
+                'tenant.list.page',
+                { current: page, total: totalPages },
+                `Page ${page} of ${totalPages}`
+              )}
             </span>
             <Button
               variant="outline"

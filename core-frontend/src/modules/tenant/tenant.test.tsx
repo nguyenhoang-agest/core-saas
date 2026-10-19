@@ -184,10 +184,11 @@ describe('Tenant Module', () => {
   });
 
   describe('CreateTenantDialog', () => {
-    it('renders form and validates required tenant name in English', () => {
+    it('renders form and validates required tenant name in English with isolation mode selection', () => {
       renderWithProviders(<CreateTenantDialog open={true} onOpenChange={() => {}} />);
 
       expect(screen.getByText('Provision New Tenant')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Tenant Name/i)).toBeInTheDocument();
       expect(screen.getByText('Shared Database')).toBeInTheDocument();
       expect(screen.getByText('Dedicated DB')).toBeInTheDocument();
 
@@ -198,10 +199,11 @@ describe('Tenant Module', () => {
       expect(screen.getByText('Tenant name is required.')).toBeInTheDocument();
     });
 
-    it('renders form and validates required tenant name in Vietnamese', () => {
+    it('renders form and validates required tenant name in Vietnamese with isolation mode selection', () => {
       renderWithProviders(<CreateTenantDialog open={true} onOpenChange={() => {}} />, 'vi');
 
       expect(screen.getByText('Khởi Tạo Tenant Mới')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Tên Tenant/i)).toBeInTheDocument();
       expect(screen.getByText('Cơ Sở Dữ Liệu Dùng Chung')).toBeInTheDocument();
       expect(screen.getByText('DB Độc Lập (Dedicated)')).toBeInTheDocument();
 
@@ -212,14 +214,29 @@ describe('Tenant Module', () => {
       expect(screen.getByText('Tên Tenant là bắt buộc.')).toBeInTheDocument();
     });
 
-    it('unfolds dedicated db inputs when clicking Dedicated DB', () => {
+    it('allows selecting Dedicated DB with DSN while strictly denying connection pool and SSL mode choices', () => {
       renderWithProviders(<CreateTenantDialog open={true} onOpenChange={() => {}} />);
 
+      // Switch to Dedicated DB
       const dedicatedBtn = screen.getByText('Dedicated DB');
       fireEvent.click(dedicatedBtn);
 
-      expect(screen.getByText('Connection DSN')).toBeInTheDocument();
-      expect(screen.getByText('Max Connections')).toBeInTheDocument();
+      // Connection DSN is available
+      expect(screen.getByLabelText(/Connection DSN/i)).toBeInTheDocument();
+
+      // Connection pool choice is strictly DENIED to user (no editable input)
+      expect(screen.queryByLabelText(/Max Connections/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('spinbutton', { name: /Max Connections/i })).not.toBeInTheDocument();
+
+      // SSL mode choice is strictly DENIED to user (no editable input)
+      expect(screen.queryByLabelText(/^SSL Mode$/i)).not.toBeInTheDocument();
+
+      // Platform managed read-only badges are shown
+      expect(screen.getByTestId('connection-pool-managed')).toBeInTheDocument();
+      expect(screen.getByText('10 connections')).toBeInTheDocument();
+
+      expect(screen.getByTestId('ssl-mode-managed')).toBeInTheDocument();
+      expect(screen.getByText('require')).toBeInTheDocument();
     });
   });
 

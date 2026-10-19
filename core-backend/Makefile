@@ -155,9 +155,9 @@ clean: ## Clean build binaries and coverage
 init: ## Initialize and rename project (usage: make init PROJECT=my-saas MODULE=github.com/org/my-saas)
 	@./scripts/init.sh PROJECT=$(PROJECT) MODULE=$(MODULE) KEEP=$(KEEP)
 
-new-module: ## Scaffold new module from template (usage: make new-module NAME=billing)
-	@if [ -z "$(NAME)" ]; then echo "Error: NAME is required. Example: make new-module NAME=billing"; exit 1; fi
-	@./scripts/new-module.sh $(NAME)
+new-module: ## Scaffold new module from template (usage: make new-module NAME=billing [DIRS_ONLY=true])
+	@if [ -z "$(NAME)" ]; then echo "Error: NAME is required. Example: make new-module NAME=billing [DIRS_ONLY=true]"; exit 1; fi
+	@./scripts/new-module.sh $(NAME) $(if $(filter true 1 yes,$(DIRS_ONLY)$(BARE)$(EMPTY)),--dirs-only,)
 
 new-migration: ## Scaffold new migration file (usage: make new-migration MODULE=tenant NAME=add_domain)
 	@if [ -z "$(MODULE)" ] || [ -z "$(NAME)" ]; then echo "Error: MODULE and NAME are required. Example: make new-migration MODULE=tenant NAME=add_domain"; exit 1; fi

@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useTenant } from '@/core/tenant/tenant-context';
 import { useI18n } from '@/core/i18n/i18n-context';
 import { appConfig } from '@/../config/app.config';
+import { moduleRegistry } from '@/core/modules/registry';
 import { LocaleSwitcher } from './locale-switcher';
 
 interface NavItem {
@@ -53,11 +54,41 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
   const { t } = useI18n();
 
-  const getBreadcrumbTitle = () => {
-    if (pathname === '/') return t('nav.dashboard', 'Dashboard');
-    if (pathname.startsWith('/tenants')) return t('nav.tenants', 'Tenants');
-    if (pathname.startsWith('/settings')) return t('nav.settings', 'Settings');
-    return pathname.replace('/', '');
+  const getBreadcrumbs = () => {
+    const rootItem = { label: t('shell.admin', 'Admin'), href: '/' };
+
+    if (!pathname || pathname === '/') {
+      return [rootItem, { label: t('nav.dashboard', 'Dashboard'), href: '/' }];
+    }
+
+    const segments = pathname.split('/').filter(Boolean);
+    const items = [rootItem];
+
+    let accumulatedPath = '';
+    for (const segment of segments) {
+      accumulatedPath += `/${segment}`;
+
+      // 1. Try dictionary lookup for nav.<segment>
+      let label = t(`nav.${segment}`, '');
+
+      // 2. Try registered module lookup
+      if (!label || label === `nav.${segment}`) {
+        const mod = moduleRegistry.get(segment);
+        if (mod) {
+          label = mod.name;
+        } else {
+          // 3. Fallback: convert kebab-case or slug to title case
+          label = segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+        }
+      }
+
+      items.push({
+        label,
+        href: accumulatedPath,
+      });
+    }
+
+    return items;
   };
 
   return (
@@ -150,13 +181,35 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {/* Top Header */}
         <header className="h-14 border-b border-neutral-200 bg-white/80 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-6 lg:px-8">
           {/* Breadcrumbs */}
-          <div className="flex items-center space-x-1.5 text-xs text-neutral-700">
-            <span>{t('shell.admin', 'Admin')}</span>
-            <ChevronRight className="h-3 w-3 text-neutral-600 stroke-[1.5]" />
-            <span className="text-neutral-900 font-medium capitalize">
-              {getBreadcrumbTitle()}
-            </span>
-          </div>
+          <nav aria-label="Breadcrumb" className="flex items-center">
+            <ol className="flex items-center space-x-1.5 text-xs text-neutral-500">
+              {getBreadcrumbs().map((item, index, arr) => {
+                const isLast = index === arr.length - 1;
+                return (
+                  <li key={item.href + index} className="flex items-center space-x-1.5">
+                    {index > 0 && (
+                      <ChevronRight
+                        className="h-3 w-3 text-neutral-400 stroke-[1.5] shrink-0"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {isLast ? (
+                      <span className="text-neutral-900 font-medium capitalize" aria-current="page">
+                        {item.label}
+                      </span>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        className="text-neutral-500 hover:text-neutral-900 transition-colors capitalize"
+                      >
+                        {item.label}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
 
           {/* Right Header Badges */}
           <div className="flex items-center space-x-3 text-xs">

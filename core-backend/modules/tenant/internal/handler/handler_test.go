@@ -13,7 +13,6 @@ import (
 	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/handler"
-	_ "github.com/example/core-backend/modules/tenant/internal/locales"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/exceptions"
@@ -315,7 +314,7 @@ func TestCreateTenant_DedicatedMode(t *testing.T) {
 	}
 }
 
-func TestCreateTenant_LocalizedError_Vietnamese(t *testing.T) {
+func TestCreateTenant_ErrorCodeResponse(t *testing.T) {
 	mockSvc := &mockTenantService{
 		createFunc: func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
 			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
@@ -325,7 +324,6 @@ func TestCreateTenant_LocalizedError_Vietnamese(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"Existing Tenant"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept-Language", "vi-VN,vi;q=0.9")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -342,44 +340,15 @@ func TestCreateTenant_LocalizedError_Vietnamese(t *testing.T) {
 		t.Fatalf("failed to parse error response: %v", err)
 	}
 
+	// Backend contract returns machine-readable message_code; frontend dictionary translates it.
 	if errResp.MessageCode != errcode.TenantAlreadyExists.Code() {
 		t.Fatalf("expected code %s, got %s", errcode.TenantAlreadyExists.Code(), errResp.MessageCode)
 	}
-
-	expectedVi := "Tên Tenant này đã tồn tại trong hệ thống."
-	if errResp.Message != expectedVi {
-		t.Fatalf("expected localized message '%s', got '%s'", expectedVi, errResp.Message)
+	if errResp.Status != "error" {
+		t.Fatalf("expected status 'error', got %s", errResp.Status)
 	}
 }
 
-func TestCreateTenant_LocalizedError_English(t *testing.T) {
-	mockSvc := &mockTenantService{
-		createFunc: func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
-			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
-		},
-	}
-	app := setupTestApp(mockSvc)
-
-	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"Existing Tenant"}`))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-
-	resp, err := app.Test(req)
-	if err != nil {
-		t.Fatalf("unexpected error making test request: %v", err)
-	}
-
-	respBody, _ := io.ReadAll(resp.Body)
-	var errResp httpx.ResponseError
-	if err := json.Unmarshal(respBody, &errResp); err != nil {
-		t.Fatalf("failed to parse error response: %v", err)
-	}
-
-	expectedEn := "A tenant with this name already exists."
-	if errResp.Message != expectedEn {
-		t.Fatalf("expected localized message '%s', got '%s'", expectedEn, errResp.Message)
-	}
-}
 
 func TestListTenants_Success(t *testing.T) {
 	mockSvc := &mockTenantService{

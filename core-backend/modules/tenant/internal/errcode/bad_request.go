@@ -9,5 +9,6 @@ const (
 	TenantAlreadyExists
 	InvalidIsolateMode
 	MissingDedicatedDBConfig
+	InvalidDedicatedDBConfig
 	// ONLY APPEND ERROR CODE
 )

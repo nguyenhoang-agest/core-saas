@@ -19,7 +19,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useTenant as useTenantQuery } from '../api/tenant-api';
+import { useTenant as useTenantQuery } from '../hooks/tenant-hooks';
 import { useTenant as useTenantContext } from '@/core/tenant/tenant-context';
 import { useI18n } from '@/core/i18n/i18n-context';
 import type { Tenant } from '../types/tenant';
@@ -92,7 +92,10 @@ export function TenantInspector({ initialTenantId }: TenantInspectorProps) {
               <span>{t('tenant.inspect.title', 'Tenant Lookup & Inspector')}</span>
             </CardTitle>
             <CardDescription className="mt-1">
-              {t('tenant.inspect.description', 'Query and inspect tenant state directly from the Go backend via')}{' '}
+              {t(
+                'tenant.inspect.description',
+                'Query and inspect tenant state directly from the Go backend via'
+              )}{' '}
               <code className="text-neutral-900 font-mono text-xs bg-neutral-100 px-1 py-0.5 rounded border border-neutral-200">
                 GET /tenants/:id
               </code>
@@ -109,7 +112,8 @@ export function TenantInspector({ initialTenantId }: TenantInspectorProps) {
               }}
               className="text-xs text-neutral-600 self-start sm:self-auto"
             >
-              {t('tenant.inspect.inspect_active', 'Inspect Active Context')} ({currentContextTenant.id})
+              {t('tenant.inspect.inspect_active', 'Inspect Active Context')} (
+              {currentContextTenant.id})
             </Button>
           )}
         </div>
@@ -174,7 +178,9 @@ export function TenantInspector({ initialTenantId }: TenantInspectorProps) {
                   </h3>
                   <Badge variant="outline" className="gap-1.5 bg-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span className="capitalize">{tenant.status || t('common.active', 'Active')}</span>
+                    <span className="capitalize">
+                      {tenant.status || t('common.active', 'Active')}
+                    </span>
                   </Badge>
                   <Badge
                     variant="outline"
@@ -287,10 +293,7 @@ export function TenantInspector({ initialTenantId }: TenantInspectorProps) {
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-700 flex items-center gap-1.5">
                     <Database className="h-3.5 w-3.5 text-neutral-900" />
                     <span>
-                      {t(
-                        'tenant.inspect.dedicated_config',
-                        'Dedicated Database Configuration'
-                      )}
+                      {t('tenant.inspect.dedicated_config', 'Dedicated Database Configuration')}
                     </span>
                   </span>
                   <button

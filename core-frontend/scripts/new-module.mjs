@@ -17,9 +17,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 function toCamelCase(str) {
-  return str
-    .toLowerCase()
-    .replace(/[-_]+(.)/g, (_, c) => c.toUpperCase());
+  return str.toLowerCase().replace(/[-_]+(.)/g, (_, c) => c.toUpperCase());
 }
 
 function toTitleCase(str) {
@@ -58,14 +56,30 @@ function copyAndTransformDir(srcDir, destDir, replacements) {
         .replaceAll('TemplatePage', `${toTitleCase(replacements.name).replace(/\s+/g, '')}Page`)
         .replaceAll('TemplateStore', `${toTitleCase(replacements.name).replace(/\s+/g, '')}Store`)
         .replaceAll('TemplateState', `${toTitleCase(replacements.name).replace(/\s+/g, '')}State`)
-        .replaceAll('createTemplateStore', `create${toTitleCase(replacements.name).replace(/\s+/g, '')}Store`)
-        .replaceAll('TemplateStoreProvider', `${toTitleCase(replacements.name).replace(/\s+/g, '')}StoreProvider`)
-        .replaceAll('useTemplateStore', `use${toTitleCase(replacements.name).replace(/\s+/g, '')}Store`)
-        .replaceAll('fetchTemplateData', `fetch${toTitleCase(replacements.name).replace(/\s+/g, '')}Data`)
-        .replaceAll('useTemplateData', `use${toTitleCase(replacements.name).replace(/\s+/g, '')}Data`)
+        .replaceAll(
+          'createTemplateStore',
+          `create${toTitleCase(replacements.name).replace(/\s+/g, '')}Store`
+        )
+        .replaceAll(
+          'TemplateStoreProvider',
+          `${toTitleCase(replacements.name).replace(/\s+/g, '')}StoreProvider`
+        )
+        .replaceAll(
+          'useTemplateStore',
+          `use${toTitleCase(replacements.name).replace(/\s+/g, '')}Store`
+        )
+        .replaceAll(
+          'fetchTemplateData',
+          `fetch${toTitleCase(replacements.name).replace(/\s+/g, '')}Data`
+        )
+        .replaceAll(
+          'useTemplateData',
+          `use${toTitleCase(replacements.name).replace(/\s+/g, '')}Data`
+        )
         .replaceAll('TemplateData', `${toTitleCase(replacements.name).replace(/\s+/g, '')}Data`)
         .replaceAll('template-page', `${replacements.name}-page`)
         .replaceAll('template-api', `${replacements.name}-api`)
+        .replaceAll('template-hooks', `${replacements.name}-hooks`)
         .replaceAll('template-store', `${replacements.name}-store`);
 
       fs.writeFileSync(destPath, content, 'utf8');
@@ -168,14 +182,11 @@ export default function Page() {
 
     // Add module to enabledModules array
     if (!config.includes(moduleVarName)) {
-      config = config.replace(
-        /enabledModules:\s*\[([\s\S]*?)\]/,
-        (match, inner) => {
-          const trimmed = inner.trim();
-          const separator = trimmed ? '\n    ' : '';
-          return `enabledModules: [${inner}${separator}${moduleVarName},\n  ]`;
-        }
-      );
+      config = config.replace(/enabledModules:\s*\[([\s\S]*?)\]/, (match, inner) => {
+        const trimmed = inner.trim();
+        const separator = trimmed ? '\n    ' : '';
+        return `enabledModules: [${inner}${separator}${moduleVarName},\n  ]`;
+      });
       fs.writeFileSync(appConfigPath, config, 'utf8');
       console.log(`✅ Registered ${moduleVarName} in config/app.config.ts`);
     }

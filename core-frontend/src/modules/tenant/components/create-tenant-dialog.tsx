@@ -3,11 +3,12 @@
 import React, { useState } from 'react';
 import {
   Building2,
-  Database,
-  Layers,
   AlertCircle,
   Loader2,
-  CheckCircle2,
+  Layers,
+  Database,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 import {
   Dialog,
@@ -20,7 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useCreateTenant } from '../api/tenant-api';
+import { useCreateTenant } from '@/modules/tenant';
 import { useI18n } from '@/core/i18n/i18n-context';
 import type { Tenant, TenantIsolateMode, CreateTenantInput } from '../types/tenant';
 
@@ -30,19 +31,12 @@ interface CreateTenantDialogProps {
   onSuccess?: (createdTenant: Tenant) => void;
 }
 
-export function CreateTenantDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-}: CreateTenantDialogProps) {
+export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTenantDialogProps) {
   const { formatError, t } = useI18n();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isolateMode, setIsolateMode] = useState<TenantIsolateMode>('shared');
   const [dsn, setDsn] = useState('');
-  const [maxConns, setMaxConns] = useState('10');
-  const [sslMode, setSslMode] = useState('disable');
-
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
 
   const createTenantMutation = useCreateTenant();
@@ -52,8 +46,6 @@ export function CreateTenantDialog({
     setDescription('');
     setIsolateMode('shared');
     setDsn('');
-    setMaxConns('10');
-    setSslMode('disable');
     setClientErrors({});
     createTenantMutation.reset();
   };
@@ -93,10 +85,10 @@ export function CreateTenantDialog({
     };
 
     if (isolateMode === 'dedicated') {
+      // Both connection pool and SSL mode are strictly system-enforced for security.
       payload.db_config = {
         dsn: dsn.trim(),
-        max_conns: parseInt(maxConns, 10) || 10,
-        ssl_mode: sslMode.trim() || 'disable',
+        ssl_mode: 'require',
       };
     }
 
@@ -276,6 +268,7 @@ export function CreateTenantDialog({
               <span>{t('tenant.create.dedicated_params', 'Dedicated DB Parameters')}</span>
             </div>
 
+            {/* Connection DSN */}
             <div className="space-y-1.5">
               <Label htmlFor="tenant-dsn" required>
                 {t('tenant.create.dsn_label', 'Connection DSN')}
@@ -308,28 +301,42 @@ export function CreateTenantDialog({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              {/* Connection Pool: STRICTLY DENIED TO USER / PLATFORM MANAGED */}
               <div className="space-y-1.5">
-                <Label htmlFor="max-conns">
-                  {t('tenant.create.max_conns_label', 'Max Connections')}
+                <Label className="text-neutral-600">
+                  {t('tenant.create.pool_policy_label', 'Connection Pool Policy')}
                 </Label>
-                <Input
-                  id="max-conns"
-                  type="number"
-                  value={maxConns}
-                  onChange={(e) => setMaxConns(e.target.value)}
-                  placeholder="10"
-                />
+                <div
+                  data-testid="connection-pool-managed"
+                  className="rounded-md border border-neutral-200 bg-white p-2.5 text-neutral-700 flex items-center gap-2 text-xs"
+                >
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div className="leading-tight">
+                    <span className="font-semibold text-neutral-900">10 connections</span>
+                    <p className="text-[10px] text-neutral-500">
+                      {t('tenant.create.pool_policy_desc', 'Platform-managed to prevent exhaustion.')}
+                    </p>
+                  </div>
+                </div>
               </div>
+
+              {/* SSL Mode: STRICTLY DENIED TO USER / PLATFORM ENFORCED (require) */}
               <div className="space-y-1.5">
-                <Label htmlFor="ssl-mode">
-                  {t('tenant.create.ssl_mode_label', 'SSL Mode')}
+                <Label className="text-neutral-600">
+                  {t('tenant.create.ssl_policy_label', 'SSL Security Mode')}
                 </Label>
-                <Input
-                  id="ssl-mode"
-                  value={sslMode}
-                  onChange={(e) => setSslMode(e.target.value)}
-                  placeholder="disable"
-                />
+                <div
+                  data-testid="ssl-mode-managed"
+                  className="rounded-md border border-neutral-200 bg-white p-2.5 text-neutral-700 flex items-center gap-2 text-xs"
+                >
+                  <Lock className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div className="leading-tight">
+                    <span className="font-semibold text-neutral-900">require</span>
+                    <p className="text-[10px] text-neutral-500">
+                      {t('tenant.create.ssl_policy_desc', 'TLS encryption strictly required for all dedicated databases.')}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

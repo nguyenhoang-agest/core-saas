@@ -51,15 +51,17 @@ When registering a tenant, the client can specify an `isolate_mode`:
   "description": "Enterprise customer with dedicated database",
   "isolate_mode": "dedicated",
   "db_config": {
-    "dsn": "postgres://user:password@dedicated-db-host:5432/enterprise_db?sslmode=require",
-    "max_conns": 20
+    "dsn": "postgres://user:password@dedicated-db-host:5432/enterprise_db?sslmode=require"
   }
 }
 ```
 
-**Validation Rules for Dedicated Mode:**
-- `db_config.dsn` is required and must not be empty.
-- If `max_conns` is 0 or omitted, it defaults to 10 connections.
+**Security & Validation Policies for Dedicated Mode:**
+- **DSN Validation & SSRF Prevention (`pkg/db.ValidateDSN`)**: 
+  - `db_config.dsn` is required, must be a valid PostgreSQL connection string, and cannot be empty.
+  - Prohibits loopback addresses (`localhost`, `127.0.0.0/8`, `::1`, `0.0.0.0`) and cloud instance metadata (`169.254.169.254`) to prevent Server-Side Request Forgery (SSRF).
+- **Connection Pool Policy**: Strictly platform-managed. Any user-provided connection pool parameter is denied/overridden and fixed to `DefaultTenantMaxConns = 10` to prevent database connection exhaustion.
+- **SSL Security Mode**: Strictly platform-managed. Changing SSL mode (e.g. to `disable`) is prohibited. All dedicated databases are enforced to `DefaultTenantSSLMode = "require"` (TLS encryption required).
 
 **Response (`201 Created`):**
 ```json
@@ -73,7 +75,8 @@ When registering a tenant, the client can specify an `isolate_mode`:
     "isolate_mode": "dedicated",
     "db_config": {
       "dsn": "postgres://user:password@dedicated-db-host:5432/enterprise_db?sslmode=require",
-      "max_conns": 20
+      "max_conns": 10,
+      "ssl_mode": "require"
     },
     "create_at": "2026-10-12T16:20:00Z",
     "update_at": "2026-10-12T16:20:00Z"

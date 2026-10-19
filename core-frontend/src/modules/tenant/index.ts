@@ -3,6 +3,7 @@ import { TenantAdminPage } from './pages/tenant-admin-page';
 
 export * from './types/tenant';
 export * from './api/tenant-api';
+export * from './hooks/tenant-hooks';
 export * from './pages/tenant-admin-page';
 export * from './components/tenant-kpi-cards';
 export * from './components/tenant-inspector';

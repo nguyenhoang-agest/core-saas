@@ -21,7 +21,10 @@
     "overview": "Overview",
     "tenants": "Tenants",
     "settings": "Settings",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "billing": "Billing",
+    "iam": "Identity & Access",
+    "example": "Example"
   },
   "shell": {
     "admin": "Admin",
@@ -57,7 +60,7 @@
     },
     "create": {
       "title": "Provision New Tenant",
-      "description": "Create an isolated organization workspace with dedicated or shared multi-tenancy.",
+      "description": "Create an isolated organization workspace. Database routing and isolation are automatically managed by the platform.",
       "name_label": "Tenant Name",
       "name_placeholder": "e.g. Acme Corporation, Stark Industries",
       "description_label": "Description (Optional)",
@@ -67,7 +70,11 @@
       "dsn_label": "Connection DSN",
       "dsn_placeholder": "postgres://user:pass@host:5432/tenant_db",
       "max_conns_label": "Max Connections",
+      "pool_policy_label": "Connection Pool Policy",
+      "pool_policy_desc": "Platform-managed: Fixed at 10 connections to prevent resource starvation.",
       "ssl_mode_label": "SSL Mode",
+      "ssl_policy_label": "SSL Security Mode",
+      "ssl_policy_desc": "TLS encryption strictly required for all dedicated databases.",
       "submit": "Create Tenant",
       "validation": {
         "name_required": "Tenant name is required.",

@@ -68,6 +68,8 @@ Replaces monolithic provider blocks:
 - **Query Cache Isolation (`src/core/tenant/tenant-key.ts`)**: `tenantKey(tenantId, ['users', id])` prefixes all TanStack Query cache keys to prevent cross-tenant cache leakage in multi-tenant sessions.
 - **Dynamic Theming**: Tenant colors dynamically set CSS custom properties (`--primary-color`, `--border-radius`) and drive Ant Design's `theme.token`.
 - **Isolation Modes (`src/core/tenant/tenant-context.tsx`)**: `TenantConfig` carries `isolateMode: TenantIsolateMode` (`'shared' | 'schema' | 'dedicated'`) indicating the backend data isolation tier for the current workspace.
+- **Dedicated Tenant Security Governance (`src/modules/tenant/components/create-tenant-dialog.tsx`)**: When provisioning dedicated database tenants, users specify the target DSN, while connection pool limits (`10 connections`) and TLS security (`sslmode: require`) are strictly locked as read-only platform-managed badges to prevent insecure client overrides.
+- **Single Source of Truth Error Translation**: The frontend maps backend machine-readable `message_code` values (e.g. `E031001` - `E031006`) directly to localized copy via `src/locales/{en,vi}/errors.json`, eliminating duplicate translation catalogs on the backend.
 
 ---
 

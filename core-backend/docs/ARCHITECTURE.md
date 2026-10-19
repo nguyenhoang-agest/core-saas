@@ -50,12 +50,14 @@ The SaaS Starter Kit follows a **Modular Monolith** architecture designed for ve
 
 ## 2. Module Boundaries & Rules
 
-1. **Self-Contained Structure**: Every module contains its own:
-   - `domain/`: Business entities and ports (repository and service interfaces). Zero dependencies on external frameworks.
-   - `app/`: Use-case coordinators and domain event publication.
-   - `adapters/`: Outbound implementations (SQL storage, external APIs).
-   - `http/`: Inbound HTTP handlers and route registration.
-   - `migrations/`: Embedded SQL migrations isolated in a per-module Goose version table.
+1. **Module Autonomy & Internal Freedom**:
+   - The platform treats each module as an autonomous domain unit. Inside their module directory (`modules/<name>`), developers are completely free to choose any architectural style that best fits their domain:
+     - **Tenant Layered Pattern** (Recommended default: `internal/{dto,errcode,handler,model,repository,service}`).
+     - **Hexagonal / Clean Architecture** (`domain`, `app`, `adapters`, `http` like `modules/example`).
+     - **CQRS / Vertical Slices** or **Lightweight Flat CRUD**.
+     - Any persistence mechanism (GORM, raw `pgxpool`, SQLC, or external APIs).
+   - If developers want the recommended, battle-tested layout out of the box, `make new-module NAME=<name>` scaffolds the full Tenant layout, wires test suites, and auto-registers the module in the monolith in one command.
+   - The only contract required by the platform is implementing `kernel.Module` (`Name()`, `Register(r)`, and `Migrate(ctx)`).
 2. **Explicit Dependency Injection**: Modules expose a `New(pool, bus)` constructor and implement `kernel.Module`. Reflection and dynamic scanning are forbidden.
 3. **Internal Package Isolation**: Modules must **NEVER** import another module's internal packages (`domain/`, `app/`, `adapters/`, `http/`). Cross-module interactions occur strictly via:
    - Exported root package contracts or DTOs.
@@ -109,7 +111,23 @@ Key runtime features of `DynamicDBRouter`:
 - **Idle Pool Reaper**: A background worker periodically reaps connection pools that have been idle past `idleTimeout` (default: 30 minutes), releasing database file descriptors and memory.
 - **Graceful Shutdown**: Automatically drains and closes all opened tenant pools upon application termination.
 
-### 3.4. Tenant Promotion & Migration Workflow (Shared to Dedicated)
+### 3.4. Dedicated Database Security & Governance (`pkg/db/security.go`)
+
+Dedicated databases introduce unique operational and security risks (connection exhaustion, insecure plaintext traffic, and SSRF attacks against internal infrastructure). These concerns are governed at the infrastructure foundation layer ([`pkg/db/security.go`](../pkg/db/security.go)) adhering strictly to the **Single Responsibility Principle (SRP)**:
+
+1. **Denial of Client Pool Configuration**:
+   - Allowing tenants or end-users to specify connection pool sizes leads to server resource starvation or database denial-of-service.
+   - The platform strictly denies user pool customization, enforcing **`DefaultTenantMaxConns = 10`** uniformly across all dedicated pools.
+2. **Strict TLS / SSL Mode Enforcement**:
+   - Allowing callers to configure `ssl_mode` (such as `disable`) risks unencrypted transmission of sensitive tenant data across networks.
+   - The platform strictly enforces **`DefaultTenantSSLMode = "require"`**. Any client override attempt is rejected/overwritten.
+3. **SSRF & Network Defense (`ValidateDSN`)**:
+   - Connection strings are parsed and checked against prohibited targets: loopback addresses (`127.0.0.0/8`, `localhost`, `::1`, `0.0.0.0`) and cloud instance metadata services (`169.254.169.254`).
+4. **Architectural Separation of Concerns (Domain vs. Infrastructure)**:
+   - `modules/tenant/internal/service` focuses purely on tenant lifecycle domain orchestration (activation, suspension, event publication).
+   - Low-level network host inspection, PostgreSQL connection parsing (`pgconn.ParseConfig`), and pool limits reside in `pkg/db`, ensuring reusable, circular-dependency-free infrastructure across dynamic routers, migrations, and health checks.
+
+### 3.5. Tenant Promotion & Migration Workflow (Shared to Dedicated)
 
 When an existing `shared` tenant upgrades to an enterprise `dedicated` database:
 

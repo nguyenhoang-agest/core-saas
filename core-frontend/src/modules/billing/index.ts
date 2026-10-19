@@ -3,6 +3,7 @@ import { BillingPage } from './pages/billing-page';
 
 export * from './store/billing-store';
 export * from './api/billing-api';
+export * from './hooks/billing-hooks';
 export * from './pages/billing-page';
 
 export const billingModule: ModuleDefinition = {

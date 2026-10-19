@@ -11,6 +11,7 @@ import (
 	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/pkg/constants/response_code"
+	"github.com/example/core-backend/pkg/db"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/exceptions"
 	"github.com/example/core-backend/pkg/httpx"
@@ -73,13 +74,16 @@ func (t *tenantService) Create(ctx context.Context, req *dto.CreateTenantRequest
 		if req.DBConfig == nil || strings.TrimSpace(req.DBConfig.DSN) == "" {
 			return nil, exceptions.NewBadRequestError(errcode.MissingDedicatedDBConfig, nil)
 		}
-		dbConfig = &model.TenantDBConfig{
-			DSN:      strings.TrimSpace(req.DBConfig.DSN),
-			MaxConns: req.DBConfig.MaxConns,
-			SSLMode:  strings.TrimSpace(req.DBConfig.SSLMode),
+
+		dsn := strings.TrimSpace(req.DBConfig.DSN)
+		if err := db.ValidateDSN(dsn); err != nil {
+			return nil, exceptions.NewBadRequestError(errcode.InvalidDedicatedDBConfig, nil)
 		}
-		if dbConfig.MaxConns <= 0 {
-			dbConfig.MaxConns = 10
+
+		dbConfig = &model.TenantDBConfig{
+			DSN:      dsn,
+			MaxConns: db.DefaultTenantMaxConns,
+			SSLMode:  db.DefaultTenantSSLMode,
 		}
 	} else if req.DBConfig != nil {
 		dbConfig = req.DBConfig

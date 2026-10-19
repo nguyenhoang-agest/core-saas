@@ -9,7 +9,7 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 - **Go 1.27 & Pure Idiomatic Go**: Zero dynamic reflection or classpath scanning; explicit dependency injection.
 - **Modular Monolith**: Modules live in `modules/<name>` with strict hexagonal/clean isolation (`domain`, `app`, `adapters`, `http`, `migrations`).
 - **Microservice-Ready**: Demonstrates extracting any module into a standalone binary (`cmd/example-service`).
-- **Flexible Multi-Tenancy (Shared RLS & Database-per-tenant)**: Built-in discriminator tenant isolation via PostgreSQL Row-Level Security (`app.current_tenant_id`) alongside dynamic connection pool routing (`pkg/db/router`) for dedicated tenant databases.
+- **Flexible Multi-Tenancy (Shared RLS & Database-per-tenant)**: Built-in discriminator tenant isolation via PostgreSQL Row-Level Security (`app.current_tenant_id`) alongside dynamic connection pool routing (`pkg/db/router`) for dedicated tenant databases with platform-enforced connection pooling (10 conns), mandatory TLS encryption (`sslmode=require`), and SSRF host protections.
 - **Per-Module Migrations**: Embedded Goose SQL migrations with isolated migration tables (`goose_version_<module>`).
 - **Typed In-Process Event Bus**: Pub/Sub leveraging Go generics for decoupled inter-module messaging.
 - **Generator Tooling**: 
@@ -29,7 +29,8 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 │   └── example-service/main.go     # Loads only 'example' (proves split)
 ├── pkg/                            # Shared infra (zero domain logic)
 │   ├── config/                     # YAML & environment loader
-│   ├── db/                         # pgxpool connection & transactions
+│   ├── db/                         # pgxpool connection, GORM, & security policies
+│   │   ├── security.go             # DSN validation, SSRF blocklist, pool & SSL policies
 │   │   └── router/                 # Dynamic multi-tenant DB pool router
 │   ├── errors/                     # Structured errors with HTTP mappings
 │   ├── eventbus/                   # Typed generic pub/sub

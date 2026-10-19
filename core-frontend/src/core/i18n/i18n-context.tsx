@@ -1,4 +1,4 @@
-  'use client';
+'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
@@ -126,7 +126,7 @@ export function I18nProvider({
         }
       }
 
-      let res: string = typeof current === 'string' ? current : (effectiveFallback || key);
+      let res: string = typeof current === 'string' ? current : effectiveFallback || key;
 
       if (params) {
         for (const [pKey, pVal] of Object.entries(params)) {
@@ -140,6 +140,8 @@ export function I18nProvider({
 
   const formatError = useMemo(() => {
     return (error: unknown): FormattedError => {
+      const dict = (errorDictionaries[locale] || errorDictionaries.en) as Record<string, string>;
+
       if (axios.isAxiosError(error) && error.response?.data) {
         const data = error.response.data as {
           message_code?: string;
@@ -148,13 +150,14 @@ export function I18nProvider({
         };
 
         const code = data.message_code;
-        const dict = errorDictionaries[locale] || errorDictionaries.en;
 
         // Two-tier resolution: Check FE dictionary first -> then BE localized message -> then fallback
         const message =
           (code && dict[code]) ||
           data.message ||
-          (code ? `Error: ${code}` : 'An unexpected request error occurred.');
+          (code
+            ? `Error: ${code}`
+            : dict.ERR_UNEXPECTED || 'An unexpected request error occurred.');
 
         const fieldErrors: Record<string, string> = {};
         if (data.error_detail && Array.isArray(data.error_detail)) {
@@ -163,6 +166,7 @@ export function I18nProvider({
               const fieldMsg =
                 (item.message_code && dict[item.message_code]) ||
                 item.message ||
+                dict.ERR_INVALID_FIELD ||
                 'Invalid field value';
               fieldErrors[item.field] = fieldMsg;
             }
@@ -173,22 +177,16 @@ export function I18nProvider({
       }
 
       if (error instanceof Error) {
-        return { message: error.message };
+        return { message: dict[error.message] || error.message };
       }
 
       return {
-        message:
-          locale === 'vi'
-            ? 'Đã xảy ra lỗi mạng hoặc lỗi không xác định.'
-            : 'An unexpected network error occurred.',
+        message: dict.ERR_NETWORK || 'An unexpected network error occurred.',
       };
     };
   }, [locale]);
 
-  const value = useMemo(
-    () => ({ locale, setLocale, t, formatError }),
-    [locale, t, formatError]
-  );
+  const value = useMemo(() => ({ locale, setLocale, t, formatError }), [locale, t, formatError]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

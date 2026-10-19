@@ -3,6 +3,7 @@ import { IamPage } from './pages/iam-page';
 
 export * from './store/iam-store';
 export * from './api/iam-api';
+export * from './hooks/iam-hooks';
 export * from './pages/iam-page';
 
 export const iamModule: ModuleDefinition = {

@@ -11,6 +11,7 @@
   "E031002": "A tenant with this name already exists.",
   "E031003": "Invalid tenant isolation mode specified.",
   "E031004": "Database DSN is required when dedicated isolation mode is selected.",
+  "E031005": "Invalid dedicated database configuration or prohibited host.",
   "E040001": "The requested resource was not found.",
   "E041001": "Tenant not found with the specified ID.",
   "E050000": "Validation failed on one or more fields.",
@@ -21,5 +22,9 @@
   "E050005": "Input exceeds the maximum length constraint.",
   "E050008": "Invalid email address format.",
   "E050009": "Invalid URL format.",
-  "E050011": "Invalid UUID format."
+  "E050011": "Invalid UUID format.",
+  "ERR_NETWORK": "An unexpected network error occurred.",
+  "ERR_UNEXPECTED": "An unexpected error occurred.",
+  "ERR_INVALID_FIELD": "Invalid value",
+  "ERR_OPERATION_FAILED": "Operation failed with error code: {code}"
 }

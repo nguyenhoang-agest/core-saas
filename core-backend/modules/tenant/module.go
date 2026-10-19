@@ -5,7 +5,6 @@ import (
 	"embed"
 
 	"github.com/example/core-backend/modules/tenant/internal/handler"
-	_ "github.com/example/core-backend/modules/tenant/internal/locales"
 	"github.com/example/core-backend/modules/tenant/internal/repository"
 	"github.com/example/core-backend/modules/tenant/internal/service"
 	"github.com/example/core-backend/pkg/db"

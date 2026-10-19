@@ -37,18 +37,15 @@ curl http://localhost:8080/healthz
 
 ## 2. Adding New Domain Modules
 
-When implementing a new feature domain (e.g. `billing`, `orders`, `catalog`):
+When implementing a new feature domain (e.g. `billing`, `orders`, `catalog`), you can use the automated generator:
 
 ```bash
 make new-module NAME=billing
 ```
 
-This generator:
-1. Copies `modules/_template` to `modules/billing`.
-2. Renames Go packages and adjusts imports to your module path.
-3. Automatically registers `billing.New(pool, bus)` into `cmd/monolith/modules.go`.
+This generator scaffolds a complete module following the **Tenant Pattern & Structure** (`internal/{dto,errcode,handler,model,repository,service}`, migrations, tests) and automatically registers it in `cmd/monolith/modules.go`.
 
-See [ADDING_A_MODULE.md](ADDING_A_MODULE.md) for step-by-step guidance.
+If you prefer to create modules manually without the generator, refer to the step-by-step guide in [ADDING_A_MODULE.md](ADDING_A_MODULE.md#path-b-manual-creation-workflow-without-generator).
 
 ---
 

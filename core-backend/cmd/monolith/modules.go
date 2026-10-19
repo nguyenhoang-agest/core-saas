@@ -3,6 +3,8 @@ package main
 import (
 	"time"
 
+	"github.com/example/core-backend/modules/user"
+
 	"github.com/example/core-backend/modules/audit"
 	"github.com/example/core-backend/modules/example"
 	"github.com/example/core-backend/modules/iam"
@@ -22,6 +24,7 @@ func enabledModules(pool *pgxpool.Pool, bus *eventbus.Bus) []kernel.Module {
 	dbRouter := router.NewDynamicDBRouter(pool, cachedResolver)
 
 	return []kernel.Module{
+		user.New(pool, bus),
 		example.NewWithDBProvider(dbRouter, bus),
 		iam.New(pool, bus),
 		tenantMod,

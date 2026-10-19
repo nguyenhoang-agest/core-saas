@@ -21,7 +21,10 @@
     "overview": "Tổng quan",
     "tenants": "Không gian Tenant",
     "settings": "Cài đặt",
-    "dashboard": "Bảng điều khiển"
+    "dashboard": "Bảng điều khiển",
+    "billing": "Thanh toán & Gói dịch vụ",
+    "iam": "Quản lý Định danh & Truy cập",
+    "example": "Ví dụ"
   },
   "shell": {
     "admin": "Quản trị",
@@ -57,7 +60,7 @@
     },
     "create": {
       "title": "Khởi Tạo Tenant Mới",
-      "description": "Tạo không gian làm việc tổ chức độc lập với chế độ đa người dùng dùng chung hoặc cơ sở dữ liệu riêng biệt.",
+      "description": "Tạo không gian làm việc tổ chức độc lập. Bộ định tuyến và cơ chế cô lập cơ sở dữ liệu được quản lý tự động bởi hệ thống.",
       "name_label": "Tên Tenant",
       "name_placeholder": "Ví dụ: Acme Corporation, Stark Industries",
       "description_label": "Mô tả (Không bắt buộc)",
@@ -67,7 +70,11 @@
       "dsn_label": "Chuỗi Kết Nối DSN",
       "dsn_placeholder": "postgres://user:pass@host:5432/tenant_db",
       "max_conns_label": "Số Kết Nối Tối Đa (Max Conns)",
+      "pool_policy_label": "Chính Sách Pool Kết Nối",
+      "pool_policy_desc": "Hệ thống quản lý: Cố định 10 kết nối để ngăn cạn kiệt tài nguyên.",
       "ssl_mode_label": "Chế Độ SSL",
+      "ssl_policy_label": "Chế Độ Bảo Mật SSL",
+      "ssl_policy_desc": "Bắt buộc mã hóa TLS ('require') cho tất cả cơ sở dữ liệu riêng biệt.",
       "submit": "Tạo Tenant",
       "validation": {
         "name_required": "Tên Tenant là bắt buộc.",

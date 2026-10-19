@@ -9,6 +9,7 @@ import (
 	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/db"
 	"github.com/example/core-backend/pkg/exceptions"
 )
 
@@ -133,6 +134,88 @@ func TestService_Create_Dedicated_Success(t *testing.T) {
 
 	if tenant.DBConfig.MaxConns != 10 {
 		t.Fatalf("expected default MaxConns to be 10, got %d", tenant.DBConfig.MaxConns)
+	}
+
+	if tenant.DBConfig.SSLMode != db.DefaultTenantSSLMode {
+		t.Fatalf("expected default SSLMode to be %q, got %s", db.DefaultTenantSSLMode, tenant.DBConfig.SSLMode)
+	}
+}
+
+func TestService_Create_Dedicated_DenyUserChoiceOfSSLMode(t *testing.T) {
+	repo := &mockRepository{}
+	svc := service.NewTenantService(repo, nil)
+
+	// Caller attempts to set SSLMode to "disable"
+	req := &dto.CreateTenantRequest{
+		Name:        "Test Insecure SSL",
+		IsolateMode: model.IsolateModeDedicated,
+		DBConfig: &model.TenantDBConfig{
+			DSN:     "postgres://tenant_db:5432/app",
+			SSLMode: "disable",
+		},
+	}
+
+	tenant, err := svc.Create(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Must be forced to system-managed DefaultTenantSSLMode ("require")
+	if tenant.DBConfig.SSLMode != db.DefaultTenantSSLMode {
+		t.Fatalf("expected SSLMode to be system-managed %q, but got %q", db.DefaultTenantSSLMode, tenant.DBConfig.SSLMode)
+	}
+}
+
+func TestService_Create_Dedicated_DenyUserChoiceOfConnectionPool(t *testing.T) {
+	repo := &mockRepository{}
+	svc := service.NewTenantService(repo, nil)
+
+	// Caller attempts to set custom MaxConns (e.g. 100)
+	req := &dto.CreateTenantRequest{
+		Name:        "Test Custom Pool",
+		IsolateMode: model.IsolateModeDedicated,
+		DBConfig: &model.TenantDBConfig{
+			DSN:      "postgres://tenant_db:5432/app",
+			MaxConns: 100,
+		},
+	}
+
+	tenant, err := svc.Create(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Must be forced to system-managed DefaultTenantMaxConns (10)
+	if tenant.DBConfig.MaxConns != db.DefaultTenantMaxConns {
+		t.Fatalf("expected MaxConns to be system-managed %d, but got %d", db.DefaultTenantMaxConns, tenant.DBConfig.MaxConns)
+	}
+}
+
+func TestService_Create_Dedicated_SSRFBlocked(t *testing.T) {
+	repo := &mockRepository{}
+	svc := service.NewTenantService(repo, nil)
+
+	blockedHosts := []string{
+		"postgres://user:pass@localhost:5432/db",
+		"postgres://user:pass@127.0.0.1:5432/db",
+		"postgres://user:pass@127.0.0.2:5432/db",
+		"postgres://user:pass@169.254.169.254:5432/db",
+	}
+
+	for _, dsn := range blockedHosts {
+		req := &dto.CreateTenantRequest{
+			Name:        "Test SSRF",
+			IsolateMode: model.IsolateModeDedicated,
+			DBConfig: &model.TenantDBConfig{
+				DSN: dsn,
+			},
+		}
+
+		_, err := svc.Create(context.Background(), req)
+		var badReqErr exceptions.BadRequestError
+		if !errors.As(err, &badReqErr) || badReqErr.MessageCode != errcode.InvalidDedicatedDBConfig.Code() {
+			t.Fatalf("expected InvalidDedicatedDBConfig for prohibited DSN %q, got %v", dsn, err)
+		}
 	}
 }
 
