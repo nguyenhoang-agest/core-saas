@@ -82,13 +82,21 @@ describe('AdminShell Breadcrumb Bar', () => {
     expect(activeItem).toHaveAttribute('aria-current', 'page');
   });
 
-  it('handles other platform modules like /billing and /iam', () => {
+  it('handles platform module /billing breadcrumb', () => {
     currentPath = '/billing';
     renderWithShell();
 
     const breadcrumbNav = screen.getByRole('navigation', { name: /Breadcrumb/i });
-
     const billingItem = within(breadcrumbNav).getByText('Billing');
     expect(billingItem).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('handles platform module /users breadcrumb', () => {
+    currentPath = '/users';
+    renderWithShell();
+
+    const breadcrumbNav = screen.getByRole('navigation', { name: /Breadcrumb/i });
+    const usersItem = within(breadcrumbNav).getByText('Users');
+    expect(usersItem).toHaveAttribute('aria-current', 'page');
   });
 });

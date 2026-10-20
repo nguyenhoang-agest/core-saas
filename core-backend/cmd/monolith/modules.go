@@ -7,7 +7,6 @@ import (
 
 	"github.com/example/core-backend/modules/audit"
 	"github.com/example/core-backend/modules/example"
-	"github.com/example/core-backend/modules/iam"
 	"github.com/example/core-backend/modules/notification"
 	"github.com/example/core-backend/modules/tenant"
 	"github.com/example/core-backend/pkg/db/router"
@@ -26,7 +25,6 @@ func enabledModules(pool *pgxpool.Pool, bus *eventbus.Bus) []kernel.Module {
 	return []kernel.Module{
 		user.New(pool, bus),
 		example.NewWithDBProvider(dbRouter, bus),
-		iam.New(pool, bus),
 		tenantMod,
 		notification.New(pool, bus),
 		audit.New(pool, bus),

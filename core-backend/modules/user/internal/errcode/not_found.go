@@ -6,5 +6,6 @@ import "github.com/example/core-backend/pkg/constants/response_code"
 const (
 	_ response_code.NotFoundCode = ModuleOffset + iota
 	NotFoundUser
+	NotFoundRole
 	// ONLY APPEND ERROR CODE
 )

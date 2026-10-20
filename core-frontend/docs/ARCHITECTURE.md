@@ -12,7 +12,7 @@ src/
 ├── core/                 # Framework infra: registry, slots, overrides, tenancy, auth
 ├── modules/
 │   ├── example/          # The only fleshed-out vertical slice
-│   ├── iam/              # STUB: users, roles, invitations
+│   ├── user/             # Multi-tenant user directory, RBAC roles, and ACL permissions
 │   ├── settings/         # STUB: branding, tenant config
 │   ├── billing/          # STUB: plans, subscriptions, payment
 │   └── _template/        # Blueprint for scaffolding new modules

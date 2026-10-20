@@ -7,13 +7,21 @@ import (
 
 	"github.com/example/core-backend/modules/user/internal/dto"
 	"github.com/example/core-backend/modules/user/internal/model"
-	"github.com/example/core-backend/modules/user/internal/service"
 	"github.com/example/core-backend/pkg/db"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-var _ service.Repository = (*PostgresUserRepository)(nil)
+type IUserRepository interface {
+	Create(ctx context.Context, user *model.User) error
+	GetByID(ctx context.Context, tenantID, id string) (*model.User, error)
+	GetByEmail(ctx context.Context, tenantID, email string) (*model.User, error)
+	Update(ctx context.Context, user *model.User) error
+	Delete(ctx context.Context, tenantID, id string) error
+	GetAll(ctx context.Context, tenantID string, req *dto.PaginationOptions) ([]model.User, int64, error)
+}
+
+var _ IUserRepository = (*PostgresUserRepository)(nil)
 
 type PostgresUserRepository struct {
 	db *gorm.DB
@@ -34,38 +42,61 @@ func (r *PostgresUserRepository) Create(ctx context.Context, user *model.User) e
 	if user.Status == "" {
 		user.Status = model.StatusActive
 	}
+	if user.Role == "" {
+		user.Role = "member"
+	}
+	if user.Permissions == nil {
+		user.Permissions = model.StringArray{}
+	}
 
-	return r.db.WithContext(ctx).Create(user).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+
+		var role model.Role
+		if err := tx.Where("tenant_id = ? AND slug = ? AND delete_at IS NULL", user.TenantID, user.Role).First(&role).Error; err == nil {
+			_ = tx.Create(&model.UserRole{
+				TenantID:   user.TenantID,
+				UserID:     user.Id,
+				RoleID:     role.ID,
+				AssignedBy: "system",
+				AssignedAt: time.Now(),
+			}).Error
+		}
+
+		return nil
+	})
 }
 
-func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (*model.User, error) {
+func (r *PostgresUserRepository) GetByID(ctx context.Context, tenantID, id string) (*model.User, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection is not initialized")
 	}
 
-	var t model.User
+	var u model.User
 	if err := r.db.WithContext(ctx).
-		Where("id = ? AND delete_at IS NULL", id).
-		First(&t).Error; err != nil {
+		Where("tenant_id = ? AND id = ? AND delete_at IS NULL", tenantID, id).
+		First(&u).Error; err != nil {
 		return nil, err
 	}
 
-	return &t, nil
+	return &u, nil
 }
 
-func (r *PostgresUserRepository) GetByName(ctx context.Context, name string) (*model.User, error) {
+func (r *PostgresUserRepository) GetByEmail(ctx context.Context, tenantID, email string) (*model.User, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection is not initialized")
 	}
 
-	var t model.User
+	var u model.User
 	if err := r.db.WithContext(ctx).
-		Where("name = ? AND delete_at IS NULL", name).
-		First(&t).Error; err != nil {
+		Where("tenant_id = ? AND email = ? AND delete_at IS NULL", tenantID, email).
+		First(&u).Error; err != nil {
 		return nil, err
 	}
 
-	return &t, nil
+	return &u, nil
 }
 
 func (r *PostgresUserRepository) Update(ctx context.Context, user *model.User) error {
@@ -73,10 +104,13 @@ func (r *PostgresUserRepository) Update(ctx context.Context, user *model.User) e
 		return fmt.Errorf("database connection is not initialized")
 	}
 
+	now := time.Now().UTC()
+	user.UpdateAt = now
+
 	result := r.db.WithContext(ctx).
 		Model(&model.User{}).
-		Where("id = ? AND delete_at IS NULL", user.Id).
-		Select("name", "description", "status", "update_at").
+		Where("tenant_id = ? AND id = ? AND delete_at IS NULL", user.TenantID, user.Id).
+		Select("name", "role", "permissions", "status", "phone", "avatar_url", "update_at").
 		Updates(user)
 	if result.Error != nil {
 		return result.Error
@@ -89,7 +123,7 @@ func (r *PostgresUserRepository) Update(ctx context.Context, user *model.User) e
 	return nil
 }
 
-func (r *PostgresUserRepository) Delete(ctx context.Context, id string) error {
+func (r *PostgresUserRepository) Delete(ctx context.Context, tenantID, id string) error {
 	if r.db == nil {
 		return fmt.Errorf("database connection is not initialized")
 	}
@@ -97,7 +131,7 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, id string) error {
 	now := time.Now().UTC()
 	result := r.db.WithContext(ctx).
 		Model(&model.User{}).
-		Where("id = ? AND delete_at IS NULL", id).
+		Where("tenant_id = ? AND id = ? AND delete_at IS NULL", tenantID, id).
 		Updates(map[string]any{
 			"delete_at": now,
 			"update_at": now,
@@ -113,16 +147,22 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *PostgresUserRepository) GetAll(ctx context.Context, req *dto.PaginationOptions) ([]model.User, int64, error) {
+func (r *PostgresUserRepository) GetAll(ctx context.Context, tenantID string, req *dto.PaginationOptions) ([]model.User, int64, error) {
 	if r.db == nil {
 		return nil, 0, fmt.Errorf("database connection is not initialized")
 	}
 
-	tx := r.db.WithContext(ctx).Model(&model.User{}).Where("delete_at IS NULL")
+	tx := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("tenant_id = ? AND delete_at IS NULL", tenantID)
 
 	if req != nil {
 		if req.Keyword != "" {
-			tx = tx.Where("name ILIKE ?", "%"+req.Keyword+"%")
+			pattern := "%" + req.Keyword + "%"
+			tx = tx.Where("(name ILIKE ? OR email ILIKE ?)", pattern, pattern)
+		}
+		if req.Role != "" {
+			tx = tx.Where("role = ?", req.Role)
 		}
 		if req.Status != "" {
 			tx = tx.Where("status = ?", req.Status)
@@ -140,8 +180,9 @@ func (r *PostgresUserRepository) GetAll(ctx context.Context, req *dto.Pagination
 	limit := 20
 
 	if req != nil {
-		if req.SortBy == "name" {
-			sortBy = "name"
+		switch req.SortBy {
+		case "name", "email", "role", "status", "create_at":
+			sortBy = req.SortBy
 		}
 		if req.Order == "asc" || req.Order == "desc" {
 			order = req.Order

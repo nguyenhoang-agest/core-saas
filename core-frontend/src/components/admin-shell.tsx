@@ -11,6 +11,7 @@ import {
   Layers,
   ChevronRight,
   ExternalLink,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/core/tenant/tenant-context';
@@ -40,6 +41,13 @@ const navItems: NavItem[] = [
     href: '/tenants',
     icon: Building2,
     badge: 'Core',
+  },
+  {
+    titleKey: 'nav.users',
+    fallback: 'Users',
+    href: '/users',
+    icon: UsersIcon,
+    badge: 'RBAC',
   },
   {
     titleKey: 'nav.settings',

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/example/core-backend/pkg/i18n"
+	"github.com/example/core-backend/pkg/tenantctx"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 )
@@ -32,6 +33,7 @@ func NewServer(logger *slog.Logger) *Server {
 		StructValidator: NewStructValidator(),
 	})
 	app.Use(recover.New())
+	app.Use(tenantctx.FiberMiddleware())
 	app.Use(i18n.LocaleMiddleware())
 	app.Use(RequestLogger(logger))
 

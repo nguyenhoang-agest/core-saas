@@ -1,6 +1,6 @@
 import { SettingsPage } from '@/modules/settings';
 
-export const metadata = {
+export const  metadata = {
   title: 'Settings | Core SaaS Starter Kit',
 };
 

@@ -36,6 +36,7 @@ type Tenant struct {
 	Description string          `gorm:"column:description;type:varchar(255)" json:"description"`
 	Status      Status          `gorm:"column:status;type:varchar(50);not null" json:"status"`
 	IsolateMode IsolateMode     `gorm:"column:isolate_mode;type:varchar(50);not null" json:"isolate_mode"`
+	IsHost      bool            `gorm:"column:is_host;type:boolean;not null;default:false" json:"is_host"`
 	DBConfig    *TenantDBConfig `gorm:"column:db_config;type:jsonb;serializer:json" json:"db_config,omitempty"`
 }
 

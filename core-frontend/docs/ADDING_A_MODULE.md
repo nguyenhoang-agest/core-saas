@@ -142,7 +142,7 @@ import { notificationsModule } from '@/modules/notifications';
 export const appConfig = {
   enabledModules: [
     exampleModule,
-    iamModule,
+    userModule,
     settingsModule,
     billingModule,
     notificationsModule, // Add or remove here
