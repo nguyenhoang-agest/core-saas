@@ -45,10 +45,20 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 The frontend strictly implements an **Outlined Minimalist / Flat 2.0 Monochrome UI**:
 - **Border-focused hierarchy**: Thin 1px borders (`border-neutral-200`) instead of heavy drop shadows (`shadow-none`).
 - **Monochrome Grayscale**: 100% grayscale palette (`bg-white`, `bg-neutral-50`, `text-neutral-900`), reserving status colors strictly for live indicators (e.g. green dot for active status).
+- **Workspace Switcher (`TenantSwitcher`)**: Topbar dropdown enabling seamless workspace switching with cookie & header propagation and automatic React Query cache invalidation.
 - **Internationalization (i18n)**:
   - English (`en`) and Vietnamese (`vi`) with parameter interpolation: `useI18n().t('key', { param })`.
   - Two-tier error resolution: Client dictionary lookup $\rightarrow$ Backend returned message $\rightarrow$ Fallback.
   - Minimalist `LocaleSwitcher` on the topbar.
+
+---
+
+## Core Domain Modules
+
+- **Tenants (`/tenants`)**: Organization workspace lifecycle, shared vs. dedicated database isolation, and platform-governed connection security (TLS enforced, SSRF blocked).
+- **Users & Access Control (`/users`)**: Member management, multi-role assignment, system vs custom roles (`is_system`), and visual Role-Permission Matrix.
+- **Billing (`/billing`)**: Subscription plan tiers, add-on quotas, and invoice inspector.
+- **Settings (`/settings`)**: Organization theming tokens and localization settings.
 
 ---
 

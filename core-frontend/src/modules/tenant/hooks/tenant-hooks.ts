@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createTenant, getTenantById, getTenants, type ListTenantsParams } from '@/modules/tenant';
+import {
+  createTenant,
+  getTenantById,
+  getTenants,
+  updateTenant,
+  updateTenantStatus,
+  deleteTenant,
+  type ListTenantsParams,
+  type UpdateTenantInput,
+} from '@/modules/tenant';
 
 export const tenantQueryKeys = {
   all: ['tenants'] as const,
@@ -34,3 +43,40 @@ export function useCreateTenant() {
     },
   });
 }
+
+export function useUpdateTenant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateTenantInput }) => updateTenant(id, input),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(tenantQueryKeys.detail(updated.id), updated);
+      queryClient.invalidateQueries({ queryKey: tenantQueryKeys.all });
+    },
+  });
+}
+
+export function useUpdateTenantStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'active' | 'suspended' }) =>
+      updateTenantStatus(id, status),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(tenantQueryKeys.detail(updated.id), updated);
+      queryClient.invalidateQueries({ queryKey: tenantQueryKeys.all });
+    },
+  });
+}
+
+export function useDeleteTenant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteTenant(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tenantQueryKeys.all });
+    },
+  });
+}
+

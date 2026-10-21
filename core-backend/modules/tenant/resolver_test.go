@@ -30,6 +30,18 @@ func (m *mockTenantService) GetAllTenant(ctx context.Context, req *dto.Paginatio
 	return nil, nil
 }
 
+func (m *mockTenantService) Update(ctx context.Context, id string, req *dto.UpdateTenantRequest) (*model.Tenant, error) {
+	return nil, nil
+}
+
+func (m *mockTenantService) UpdateStatus(ctx context.Context, id string, status model.Status) (*model.Tenant, error) {
+	return nil, nil
+}
+
+func (m *mockTenantService) Delete(ctx context.Context, id string) error {
+	return nil
+}
+
 func TestTenantResolver(t *testing.T) {
 	svc := &mockTenantService{
 		getByIDFunc: func(ctx context.Context, id string) (*model.Tenant, error) {

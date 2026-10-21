@@ -259,3 +259,64 @@ func TestService_List_Success(t *testing.T) {
 		t.Errorf("expected default page_size 20, got %d", result.Pagination.PageSize)
 	}
 }
+
+func TestService_Update_Success(t *testing.T) {
+	existing := &model.Tenant{
+		BaseModel:   model.BaseModel{Id: "t-update-1"},
+		Name:        "Old Name",
+		Description: "Old Desc",
+		Status:      model.StatusActive,
+	}
+	repo := &mockRepository{
+		getByIDResult: existing,
+	}
+	svc := service.NewTenantService(repo, nil)
+
+	req := &dto.UpdateTenantRequest{
+		Name:        "New Name",
+		Description: "New Desc",
+	}
+	updated, err := svc.Update(context.Background(), "t-update-1", req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Name != "New Name" || updated.Description != "New Desc" {
+		t.Errorf("expected name 'New Name' and desc 'New Desc', got %s / %s", updated.Name, updated.Description)
+	}
+}
+
+func TestService_UpdateStatus_Suspended(t *testing.T) {
+	existing := &model.Tenant{
+		BaseModel: model.BaseModel{Id: "t-status-1"},
+		Name:      "Active Tenant",
+		Status:    model.StatusActive,
+	}
+	repo := &mockRepository{
+		getByIDResult: existing,
+	}
+	svc := service.NewTenantService(repo, nil)
+
+	updated, err := svc.UpdateStatus(context.Background(), "t-status-1", model.StatusSuspended)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Status != model.StatusSuspended {
+		t.Errorf("expected status 'suspended', got %s", updated.Status)
+	}
+}
+
+func TestService_Delete_Success(t *testing.T) {
+	existing := &model.Tenant{
+		BaseModel: model.BaseModel{Id: "t-del-1"},
+		Name:      "To Delete",
+		Status:    model.StatusActive,
+	}
+	repo := &mockRepository{
+		getByIDResult: existing,
+	}
+	svc := service.NewTenantService(repo, nil)
+
+	if err := svc.Delete(context.Background(), "t-del-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

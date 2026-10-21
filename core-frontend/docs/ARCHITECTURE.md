@@ -63,13 +63,20 @@ Replaces monolithic provider blocks:
 
 ## 3. Multi-Tenancy Subsystem
 
-- **Edge Resolution (`src/proxy.ts`)**: Next.js 16 edge proxy inspects the incoming `Host` header (e.g. `acme.saas.com`), resolves subdomain tenant IDs, and propagates `x-tenant-id` downstream via headers and cookies.
-- **Axios HTTP Client (`src/apis/axios-client.ts`)**: Automatically attaches `X-Tenant-ID` header to all outgoing API requests.
+- **Edge Resolution (`src/proxy.ts`)**: Next.js 16 edge proxy intercepts incoming requests to `/api/*` and UI pages. It evaluates tenant identity in strict priority:
+  1. `x-tenant-id` / `X-Tenant-ID` explicit request headers (from Axios or external callers).
+  2. `?tenant=` query parameter override.
+  3. Subdomain extraction from `Host` header (e.g. `acme.saas.com` -> `acme`).
+  4. `x-tenant-id` cookie persisted across user sessions.
+  5. Fallback to `"default"`.
+  It injects the resolved `x-tenant-id` into downstream request headers and mirrors it to client cookies.
+- **Topbar Tenant Switcher (`src/components/tenant-switcher.tsx`)**: Allows instant workspace switching from any page. Updates both cookies and `localStorage`, re-evaluates theme custom properties, and purges TanStack Query caches to eliminate cross-tenant data bleed.
+- **Axios HTTP Client (`src/apis/axios-client.ts`)**: Automatically attaches `X-Tenant-ID` header to all outgoing API requests using client cookie state.
 - **Query Cache Isolation (`src/core/tenant/tenant-key.ts`)**: `tenantKey(tenantId, ['users', id])` prefixes all TanStack Query cache keys to prevent cross-tenant cache leakage in multi-tenant sessions.
 - **Dynamic Theming**: Tenant colors dynamically set CSS custom properties (`--primary-color`, `--border-radius`) and drive Ant Design's `theme.token`.
 - **Isolation Modes (`src/core/tenant/tenant-context.tsx`)**: `TenantConfig` carries `isolateMode: TenantIsolateMode` (`'shared' | 'schema' | 'dedicated'`) indicating the backend data isolation tier for the current workspace.
 - **Dedicated Tenant Security Governance (`src/modules/tenant/components/create-tenant-dialog.tsx`)**: When provisioning dedicated database tenants, users specify the target DSN, while connection pool limits (`10 connections`) and TLS security (`sslmode: require`) are strictly locked as read-only platform-managed badges to prevent insecure client overrides.
-- **Single Source of Truth Error Translation**: The frontend maps backend machine-readable `message_code` values (e.g. `E031001` - `E031006`) directly to localized copy via `src/locales/{en,vi}/errors.json`, eliminating duplicate translation catalogs on the backend.
+- **Single Source of Truth Error Translation**: The frontend maps backend machine-readable `message_code` values (e.g. `E031001` - `E031006`, `E032001` - `E032015`) directly to localized copy via `src/locales/{en,vi}/errors.json`, eliminating duplicate translation catalogs on the backend.
 
 ---
 
@@ -86,5 +93,8 @@ Stores are instantiated per component tree via React Context, ensuring complete 
 
 ## 5. Security & Authorization
 
+- **System Role Protection & UI Guards**: Built-in baseline roles (`is_system = true`: `owner`, `admin`, `member`, `viewer`) display with a `System` lock badge. Edit and Delete actions are strictly disabled in the UI; users can only **Clone** system roles into new custom templates.
+- **Role-Permission Matrix (`src/modules/user/components/role-permission-matrix.tsx`)**: Visual breakdown of module capabilities across roles with real-time permission counters.
 - **`<Can permission="iam:manage" fallback={...}>`**: Client-side UI guard for conditionally rendering actions based on NextAuth session permissions (wildcard `*` supported).
 - **Backend Authoritative Rule**: Client-side `<Can>` is solely a UX presentation convenience. Authoritative access control **must always** be validated and enforced by backend API services.
+

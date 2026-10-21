@@ -17,15 +17,15 @@ The SaaS Starter Kit follows a **Modular Monolith** architecture designed for ve
                     +--------------+--------------+
                                    |
          +-----------------+-------+-------+-----------------+
-         |                 |               |                 |
-         v                 v               v                 v
-  +--------------+  +--------------+  +--------------+  +--------------+
-  |   example    |  |     iam      |  |    tenant    |  | notification |
-  |    Module    |  |  (Stub Mod)  |  |  (Catalog)   |  |  (Stub Mod)  |
-  +-------+------+  +-------+------+  +-------+------+  +-------+------+
-          |                 |                 |                 |
-          +--------+--------+                 |                 |
-                   |                          |                 |
+         |                 |       |       |                 |
+         v                 v       v       v                 v
+  +--------------+  +----------+ +----------+  +----------+  +--------------+
+  |    tenant    |  |   user   | | example  |  |   iam    |  | notification |
+  |  (Catalog)   |  |  (RBAC)  | |  Module  |  |  (Stub)  |  |    (Stub)    |
+  +-------+------+  +----+-----+ +----+-----+  +----+-----+  +-------+------+
+          |              |            |             |                 |
+          |              +-----+------+             |                 |
+          |                    |                    |                 |
                    v                          v                 v
      +---------------------------+      +-------------------------------+
      |  Dynamic DB Router        |      |     In-Process Event Bus      |
@@ -138,7 +138,50 @@ When an existing `shared` tenant upgrades to an enterprise `dedicated` database:
 5. **Update Routing Catalog**: Update `tenants` with `isolate_mode = 'dedicated'` and `db_config.dsn`.
 6. **Invalidate Cache**: Broadcast `tenant.updated` event over `eventbus` to flush `CachedTenantResolver`.
 7. **Purge Old Data**: Soft-delete or archive tenant records in the shared database.
-8. **Re-activate**: Set tenant status back to `active`.
+### 3.6. Multi-Tenant RBAC & Real-Time Authorization Engine (`modules/user`)
+
+The platform implements an enterprise multi-tenant Role-Based Access Control (RBAC) and Access Control List (ACL) engine:
+
+1. **System Roles vs. Custom Tenant Roles (`is_system`)**:
+   - Each tenant has 4 immutable system roles: `owner`, `admin`, `member`, `viewer` (`is_system = true`).
+   - System roles cannot be modified or deleted, protecting the organization from catastrophic lockout or misconfiguration.
+   - Tenants can define unlimited custom roles (`is_system = false`) or clone baseline templates.
+   - The `SyncSystemRoles` process automatically updates system roles with newly registered module permissions without touching custom roles.
+
+2. **Security Invariants**:
+   - **Anti-Lockout Owner Protection**: Guaranteed invariant that every tenant maintains at least one active user with the `owner` role. Deleting a user or revoking their role is blocked if it would leave the tenant without an owner (`E032013`).
+   - **Privilege Escalation Prevention (Subset Rule)**: Administrators can only grant roles or permissions that they themselves possess (`E032009`).
+   - **Scope Boundaries**: Distinguishes between `ScopeTenant` permissions (assignable within tenant workspaces) and `ScopePlatform` permissions (restricted to host platform operators).
+
+3. **Real-Time Distributed Invalidation via PostgreSQL `pg_notify`**:
+   - Authoritative permissions are tracked via an `authz_version` epoch table per tenant.
+   - Any permission change atomically bumps `version++` and triggers:
+     ```sql
+     SELECT pg_notify('authz_invalidation', tenant_id)
+     ```
+   - All backend instances listening to the channel instantly evict tenant authorization caches, eliminating stale permission windows.
+
+### 3.7. Tenant Context Propagation & Edge Proxy Interception
+
+```
+[Browser / Client]
+       │
+       │ HTTP Request (X-Tenant-ID: <id>)
+       ▼
+[Next.js 16 Edge Proxy (core-frontend/src/proxy.ts)]
+       │
+       │ Resolves: Header > ?tenant= query > Host subdomain > Cookie
+       │ Sets normalized 'x-tenant-id' and syncs client cookie
+       ▼
+[Go Fiber Backend (core-backend/pkg/tenantctx/middleware.go)]
+       │
+       │ Extracts: c.Get("X-Tenant-ID") / c.Get("x-tenant-id")
+       │ Injects into context: c.Locals("tenant_id", tenantID)
+       ▼
+[Dynamic DB Router / Domain Modules]
+```
+
+This guarantees seamless tenant resolution across local development (`localhost:3000`), custom subdomains (`acme.saas.local`), and programmatic API integrations.
 
 ---
 

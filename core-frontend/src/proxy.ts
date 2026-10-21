@@ -45,9 +45,24 @@ export function extractTenantFromHost(host: string | null): string {
 export function proxy(request: NextRequest) {
   const host = request.headers.get('host');
 
-  // Allow explicit header or searchParam override for testing/dev environments
+  // Allow explicit header, query parameter, or cookie override
+  const explicitHeader = request.headers.get('x-tenant-id');
   const queryTenant = request.nextUrl.searchParams.get('tenant');
-  const tenantId = queryTenant || extractTenantFromHost(host);
+  const cookieTenant = request.cookies.get('x-tenant-id')?.value;
+  const hostTenant = extractTenantFromHost(host);
+
+  let tenantId = 'default';
+  if (explicitHeader && explicitHeader.trim() !== '') {
+    tenantId = explicitHeader.trim();
+  } else if (queryTenant && queryTenant.trim() !== '') {
+    tenantId = queryTenant.trim();
+  } else if (hostTenant && hostTenant !== 'default') {
+    tenantId = hostTenant;
+  } else if (cookieTenant && cookieTenant.trim() !== '' && cookieTenant !== 'default') {
+    tenantId = cookieTenant.trim();
+  } else {
+    tenantId = hostTenant || 'default';
+  }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-tenant-id', tenantId);

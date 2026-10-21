@@ -10,6 +10,8 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 - **Modular Monolith**: Modules live in `modules/<name>` with strict hexagonal/clean isolation (`domain`, `app`, `adapters`, `http`, `migrations`).
 - **Microservice-Ready**: Demonstrates extracting any module into a standalone binary (`cmd/example-service`).
 - **Flexible Multi-Tenancy (Shared RLS & Database-per-tenant)**: Built-in discriminator tenant isolation via PostgreSQL Row-Level Security (`app.current_tenant_id`) alongside dynamic connection pool routing (`pkg/db/router`) for dedicated tenant databases with platform-enforced connection pooling (10 conns), mandatory TLS encryption (`sslmode=require`), and SSRF host protections.
+- **Granular Multi-Tenant RBAC & ACL**: Complete role engine supporting immutable system roles (`owner`, `admin`, `member`, `viewer`), custom tenant roles, Anti-Lockout Owner protection, Privilege Escalation prevention (Subset Rule), and instant distributed cache invalidation via PostgreSQL `pg_notify`.
+- **Event-Driven Lifecycle Orchestration**: Decoupled domain events (`tenant.created`, `tenant.suspended`) automating cross-module workflows (e.g. auto-syncing system roles and provisioning the initial Owner user).
 - **Per-Module Migrations**: Embedded Goose SQL migrations with isolated migration tables (`goose_version_<module>`).
 - **Typed In-Process Event Bus**: Pub/Sub leveraging Go generics for decoupled inter-module messaging.
 - **Generator Tooling**: 
@@ -40,9 +42,10 @@ A production-grade **SaaS Starter Kit** scaffold written in Go 1.27. Engineered 
 │   ├── migrate/                    # Goose per-module runner
 │   └── tenantctx/                  # Tenant context & RLS strategy
 ├── modules/
-│   ├── example/                    # The ONLY fleshed-out vertical slice
-│   ├── iam/                        # STUB: auth, users, sessions
-│   ├── tenant/                     # Workspaces, isolate_mode & DB routing catalog
+│   ├── tenant/                     # Workspaces, isolate_mode & DB routing catalog (Full CRUD & Events)
+│   ├── user/                       # Multi-tenant user directory, RBAC roles, ACL & Postgres NOTIFY
+│   ├── example/                    # Reference domain vertical slice
+│   ├── iam/                        # STUB: auth, sessions
 │   ├── notification/               # STUB: dispatcher port + log adapter
 │   ├── audit/                      # STUB: append-only audit trail
 │   └── _template/                  # Canonical generator template

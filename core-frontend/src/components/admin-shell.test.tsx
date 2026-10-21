@@ -5,6 +5,8 @@ import { AdminShell } from './admin-shell';
 import { TenantProvider } from '@/core/tenant/tenant-context';
 import { I18nProvider } from '@/core/i18n/i18n-context';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 let currentPath = '/';
 
 vi.mock('next/navigation', () => ({
@@ -12,12 +14,22 @@ vi.mock('next/navigation', () => ({
 }));
 
 function renderWithShell(ui: React.ReactNode = <div>Content</div>, locale: 'en' | 'vi' = 'en') {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
   return render(
-    <I18nProvider initialLocale={locale}>
-      <TenantProvider>
-        <AdminShell>{ui}</AdminShell>
-      </TenantProvider>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider initialLocale={locale}>
+        <TenantProvider>
+          <AdminShell>{ui}</AdminShell>
+        </TenantProvider>
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }
 

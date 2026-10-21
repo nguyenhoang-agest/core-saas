@@ -19,6 +19,7 @@ import { useI18n } from '@/core/i18n/i18n-context';
 import { appConfig } from '@/../config/app.config';
 import { moduleRegistry } from '@/core/modules/registry';
 import { LocaleSwitcher } from './locale-switcher';
+import { TenantSwitcher } from './tenant-switcher';
 
 interface NavItem {
   titleKey: string;
@@ -221,6 +222,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
           {/* Right Header Badges */}
           <div className="flex items-center space-x-3 text-xs">
+            <TenantSwitcher />
             <LocaleSwitcher />
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-600 text-[11px]">
               <Layers className="h-3.5 w-3.5 text-neutral-700 stroke-[1.5]" />

@@ -23,8 +23,9 @@ Core-saas/
 │   │   └── eventbus/               # Type-safe generic in-process event bus
 │   ├── modules/
 │   │   ├── tenant/                 # Tenant workspace catalog, isolation mode & DB configs
-│   │   ├── iam/                    # Auth, users, and session management
+│   │   ├── user/                   # Multi-tenant user directory, RBAC roles, ACL & Postgres NOTIFY
 │   │   ├── example/                # Reference domain vertical slice
+│   │   ├── iam/                    # Auth and session management
 │   │   ├── notification/           # Notification dispatcher & log adapter
 │   │   └── audit/                  # Append-only audit logging
 │   └── deploy/
@@ -32,14 +33,15 @@ Core-saas/
 │
 ├── core-frontend/                  # Next.js 16 Admin Console (AdminCN Style)
 │   ├── src/
-│   │   ├── app/                    # Next.js App Router (/tenants, /billing, /iam, /settings)
-│   │   ├── components/             # Outlined Minimalist UI primitives (Card, Dialog, Button)
+│   │   ├── app/                    # Next.js App Router (/, /tenants, /users, /billing, /settings)
+│   │   ├── components/             # Minimalist UI primitives, TenantSwitcher, LocaleSwitcher
 │   │   ├── core/
 │   │   │   ├── i18n/               # React i18n context, LocaleSwitcher, parameter interpolation
 │   │   │   └── tenant/             # Active tenant context provider & cookie sync
 │   │   ├── locales/                # Dictionaries: en/ & vi/ (errors.json, common.json)
 │   │   └── modules/
-│   │       └── tenant/             # Tenant Inspector, KPI Cards, Create Dialog
+│   │       ├── tenant/             # Tenant Inspector, KPI Cards, Create/Edit Dialogs
+│   │       └── user/               # User directory, Role management, Permission matrix
 │   └── config/app.config.ts        # Modular UI registry configuration
 │
 ├── scripts/
@@ -172,6 +174,28 @@ Core SaaS provides two levels of tenant isolation out of the box:
    - **Mandatory TLS Encryption**: Users are strictly denied from configuring or disabling SSL; all dedicated connections enforce `DefaultTenantSSLMode = "require"`.
    - **SSRF & Network Defenses**: Target hostnames are inspected by `pkg/db.ValidateDSN` to block loopback targets (`localhost`, `127.0.0.0/8`, `::1`, `0.0.0.0`) and cloud instance metadata services (`169.254.169.254`).
    - Built-in idle pool reaper automatically closes connections for idle tenants to conserve database file descriptors and memory.
+
+---
+
+## Multi-Tenant RBAC & Real-Time Authorization
+
+The user & authorization module (`core-backend/modules/user`) provides an enterprise-ready RBAC engine:
+
+1. **System Roles vs. Custom Tenant Roles (`is_system`)**:
+   - Each tenant contains 4 built-in system roles: `owner`, `admin`, `member`, and `viewer` (`is_system = true`).
+   - System roles are **immutable**: edit and delete operations are rejected at both API and repository levels (`E032007`), preventing workspace lockout.
+   - Administrators can create custom roles (`is_system = false`) or clone from system templates.
+   - System roles automatically sync newly added module permissions via `SyncSystemRoles` when the platform upgrades.
+2. **Security & Safety Invariants**:
+   - **Anti-Lockout Owner Protection**: Guaranteed invariant that every tenant maintains at least one active user with the `owner` role. Revocation or deletion is denied if it violates this rule (`E032013`).
+   - **Privilege Escalation Guard (Subset Rule)**: An administrator cannot grant roles or permissions they do not possess (`E032009`).
+   - **Scope Boundaries**: Distinguishes between `ScopeTenant` permissions and `ScopePlatform` permissions.
+3. **Real-Time Distributed Invalidation via PostgreSQL `pg_notify`**:
+   - Updates atomically bump `authz_version` and broadcast `pg_notify('authz_invalidation', tenant_id)`.
+   - Clustered instances immediately evict local permission caches with zero cache-staleness delay.
+4. **Header Propagation & Switcher**:
+   - Next.js edge proxy (`src/proxy.ts`) prioritizes incoming `X-Tenant-ID` headers before falling back to subdomains and cookies.
+   - Topbar `TenantSwitcher` allows instant workspace switching with TanStack Query cache purging.
 
 ---
 

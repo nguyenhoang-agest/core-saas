@@ -49,6 +49,47 @@ export function TenantProvider({
 }) {
   const [tenant, setTenant] = useState<TenantConfig>(initialTenant);
 
+  // Read persisted tenant from cookie on client mount
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|; )x-tenant-id=([^;]*)/);
+      if (match && match[1]) {
+        const cookieTenantId = decodeURIComponent(match[1]);
+        if (cookieTenantId) {
+          let savedName = cookieTenantId;
+          try {
+            savedName = localStorage.getItem('core_saas_tenant_name') || cookieTenantId;
+          } catch {
+            // ignore
+          }
+          setTenant((prev) => {
+            if (prev.id !== cookieTenantId) {
+              return {
+                ...prev,
+                id: cookieTenantId,
+                name: savedName,
+              };
+            }
+            return prev;
+          });
+        }
+      }
+    }
+  }, []);
+
+  const handleSetTenant = (nextTenant: TenantConfig) => {
+    setTenant(nextTenant);
+    if (typeof document !== 'undefined') {
+      document.cookie = `x-tenant-id=${encodeURIComponent(nextTenant.id)}; path=/; max-age=31536000; SameSite=Lax`;
+      try {
+        localStorage.setItem('core_saas_tenant_id', nextTenant.id);
+        localStorage.setItem('core_saas_tenant_name', nextTenant.name);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   // Sync theme to CSS custom properties
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -62,7 +103,7 @@ export function TenantProvider({
     }
   }, [tenant]);
 
-  const value = useMemo(() => ({ tenant, setTenant }), [tenant]);
+  const value = useMemo(() => ({ tenant, setTenant: handleSetTenant }), [tenant]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }

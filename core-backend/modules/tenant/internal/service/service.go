@@ -32,6 +32,9 @@ type ITenantService interface {
 	Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error)
 	GetByID(ctx context.Context, id string) (*model.Tenant, error)
 	GetAllTenant(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error)
+	Update(ctx context.Context, id string, req *dto.UpdateTenantRequest) (*model.Tenant, error)
+	UpdateStatus(ctx context.Context, id string, status model.Status) (*model.Tenant, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type tenantService struct {
@@ -110,7 +113,18 @@ func (t *tenantService) Create(ctx context.Context, req *dto.CreateTenantRequest
 	}
 
 	if t.bus != nil {
-		_ = eventbus.Publish(ctx, t.bus, api.TenantCreatedTopic, tenant)
+		evt := api.TenantCreatedEvent{
+			ID:          tenant.Id,
+			Name:        tenant.Name,
+			IsolateMode: string(tenant.IsolateMode),
+			IsHost:      tenant.IsHost,
+		}
+		if req.Owner != nil {
+			evt.OwnerEmail = strings.TrimSpace(req.Owner.Email)
+			evt.OwnerName = strings.TrimSpace(req.Owner.Name)
+			evt.OwnerPassword = req.Owner.Password
+		}
+		_ = eventbus.Publish(ctx, t.bus, api.TenantCreatedTopic, evt)
 	}
 
 	return tenant, nil
@@ -150,4 +164,113 @@ func (t *tenantService) GetAllTenant(ctx context.Context, req *dto.PaginationOpt
 
 	result := httpx.NewPaginatedData(tenants, total, req.Page, req.PageSize)
 	return &result, nil
+}
+
+func (t *tenantService) Update(ctx context.Context, id string, req *dto.UpdateTenantRequest) (*model.Tenant, error) {
+	if strings.TrimSpace(id) == "" || req == nil || strings.TrimSpace(req.Name) == "" {
+		return nil, exceptions.NewBadRequestError(response_code.InvalidParameter, nil)
+	}
+
+	tenant, err := t.tenantRepository.GetTenantByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, exceptions.NewNotFoundError(errcode.NotFoundTenant)
+		}
+		return nil, exceptions.NewInternalServerError(errcode.FailToGetTenant)
+	}
+
+	newName := strings.TrimSpace(req.Name)
+	if newName != tenant.Name {
+		existing, err := t.tenantRepository.GetTenantByName(ctx, newName)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, exceptions.NewInternalServerError(errcode.FailToGetTenant)
+		}
+		if existing != nil && existing.Id != id {
+			return nil, exceptions.NewBadRequestError(errcode.TenantAlreadyExists, nil)
+		}
+	}
+
+	tenant.Name = newName
+	tenant.Description = strings.TrimSpace(req.Description)
+
+	if err := t.tenantRepository.Update(ctx, tenant); err != nil {
+		slog.ErrorContext(ctx, "failed to update tenant", "id", id, "error", err)
+		return nil, exceptions.NewInternalServerError(errcode.FailToCreateTenant)
+	}
+
+	if t.bus != nil {
+		_ = eventbus.Publish(ctx, t.bus, api.TenantUpdatedTopic, api.TenantUpdatedEvent{
+			ID:          tenant.Id,
+			Name:        tenant.Name,
+			Status:      string(tenant.Status),
+			IsolateMode: string(tenant.IsolateMode),
+		})
+	}
+
+	return tenant, nil
+}
+
+func (t *tenantService) UpdateStatus(ctx context.Context, id string, status model.Status) (*model.Tenant, error) {
+	if strings.TrimSpace(id) == "" || (status != model.StatusActive && status != model.StatusSuspended) {
+		return nil, exceptions.NewBadRequestError(response_code.InvalidParameter, nil)
+	}
+
+	tenant, err := t.tenantRepository.GetTenantByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, exceptions.NewNotFoundError(errcode.NotFoundTenant)
+		}
+		return nil, exceptions.NewInternalServerError(errcode.FailToGetTenant)
+	}
+
+	tenant.Status = status
+	if err := t.tenantRepository.Update(ctx, tenant); err != nil {
+		slog.ErrorContext(ctx, "failed to update tenant status", "id", id, "status", status, "error", err)
+		return nil, exceptions.NewInternalServerError(errcode.FailToGetTenant)
+	}
+
+	if t.bus != nil {
+		_ = eventbus.Publish(ctx, t.bus, api.TenantUpdatedTopic, api.TenantUpdatedEvent{
+			ID:          tenant.Id,
+			Name:        tenant.Name,
+			Status:      string(tenant.Status),
+			IsolateMode: string(tenant.IsolateMode),
+		})
+		if status == model.StatusSuspended {
+			_ = eventbus.Publish(ctx, t.bus, api.TenantSuspendedTopic, api.TenantStatusEvent{
+				ID:     tenant.Id,
+				Status: string(status),
+			})
+		}
+	}
+
+	return tenant, nil
+}
+
+func (t *tenantService) Delete(ctx context.Context, id string) error {
+	if strings.TrimSpace(id) == "" {
+		return exceptions.NewBadRequestError(response_code.InvalidParameter, nil)
+	}
+
+	tenant, err := t.tenantRepository.GetTenantByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return exceptions.NewNotFoundError(errcode.NotFoundTenant)
+		}
+		return exceptions.NewInternalServerError(errcode.FailToGetTenant)
+	}
+
+	if err := t.tenantRepository.Delete(ctx, id); err != nil {
+		slog.ErrorContext(ctx, "failed to delete tenant", "id", id, "error", err)
+		return exceptions.NewInternalServerError(errcode.FailToGetTenant)
+	}
+
+	if t.bus != nil {
+		_ = eventbus.Publish(ctx, t.bus, api.TenantDeletedTopic, api.TenantStatusEvent{
+			ID:     tenant.Id,
+			Status: "deleted",
+		})
+	}
+
+	return nil
 }

@@ -3,7 +3,10 @@ package user
 import (
 	"context"
 	"embed"
+	"log/slog"
 
+	tenantapi "github.com/example/core-backend/modules/tenant/api"
+	"github.com/example/core-backend/modules/user/internal/dto"
 	"github.com/example/core-backend/modules/user/internal/handler"
 	"github.com/example/core-backend/modules/user/internal/repository"
 	"github.com/example/core-backend/modules/user/internal/service"
@@ -12,6 +15,7 @@ import (
 	"github.com/example/core-backend/pkg/kernel"
 	"github.com/example/core-backend/pkg/migrate"
 	"github.com/example/core-backend/pkg/rbac"
+	"github.com/example/core-backend/pkg/tenantctx"
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
@@ -43,9 +47,43 @@ func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
 	h := handler.NewHandler(svc)
 	rh := handler.NewRoleHandler(roleSvc)
 
+	var resolver *service.CachedPermissionResolver
 	if gormDB != nil {
-		resolver := service.NewCachedPermissionResolver(gormDB, bus)
+		resolver = service.NewCachedPermissionResolver(gormDB, bus)
 		rbac.SetPermissionResolver(resolver)
+	}
+
+	if bus != nil && gormDB != nil {
+		eventbus.Subscribe[tenantapi.TenantCreatedEvent](bus, tenantapi.TenantCreatedTopic, func(ctx context.Context, evt tenantapi.TenantCreatedEvent) error {
+			slog.InfoContext(ctx, "seeding system roles for new tenant", "tenant_id", evt.ID, "is_host", evt.IsHost)
+			if err := service.SyncSystemRoles(ctx, gormDB, evt.ID, evt.IsHost); err != nil {
+				slog.ErrorContext(ctx, "failed to seed system roles for tenant", "tenant_id", evt.ID, "error", err)
+				return err
+			}
+
+			if evt.OwnerEmail != "" {
+				slog.InfoContext(ctx, "provisioning initial owner user for tenant", "tenant_id", evt.ID, "email", evt.OwnerEmail)
+				ownerReq := &dto.CreateUserRequest{
+					Email: evt.OwnerEmail,
+					Name:  evt.OwnerName,
+					Role:  string(rbac.RoleOwner),
+				}
+				tenantCtx := tenantctx.WithContext(ctx, evt.ID)
+				if _, err := svc.Create(tenantCtx, ownerReq); err != nil {
+					slog.ErrorContext(ctx, "failed to provision initial owner for tenant", "tenant_id", evt.ID, "error", err)
+				} else {
+					_ = service.BackfillLegacyUserRoles(ctx, gormDB, evt.ID)
+				}
+			}
+			return nil
+		})
+
+		eventbus.Subscribe[tenantapi.TenantStatusEvent](bus, tenantapi.TenantSuspendedTopic, func(ctx context.Context, evt tenantapi.TenantStatusEvent) error {
+			if resolver != nil {
+				resolver.Invalidate(ctx, evt.ID, "")
+			}
+			return nil
+		})
 	}
 
 	return &Module{

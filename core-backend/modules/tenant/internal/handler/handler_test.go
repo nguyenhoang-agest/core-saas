@@ -25,6 +25,9 @@ type mockTenantService struct {
 	createFunc       func(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error)
 	getByIDFunc      func(ctx context.Context, id string) (*model.Tenant, error)
 	getAllTenantFunc func(ctx context.Context, req *dto.PaginationOptions) (*httpx.PaginatedData[model.Tenant], error)
+	updateFunc       func(ctx context.Context, id string, req *dto.UpdateTenantRequest) (*model.Tenant, error)
+	updateStatusFunc func(ctx context.Context, id string, status model.Status) (*model.Tenant, error)
+	deleteFunc       func(ctx context.Context, id string) error
 }
 
 func (m *mockTenantService) Create(ctx context.Context, req *dto.CreateTenantRequest) (*model.Tenant, error) {
@@ -46,6 +49,27 @@ func (m *mockTenantService) GetAllTenant(ctx context.Context, req *dto.Paginatio
 		return m.getAllTenantFunc(ctx, req)
 	}
 	return nil, nil
+}
+
+func (m *mockTenantService) Update(ctx context.Context, id string, req *dto.UpdateTenantRequest) (*model.Tenant, error) {
+	if m.updateFunc != nil {
+		return m.updateFunc(ctx, id, req)
+	}
+	return nil, nil
+}
+
+func (m *mockTenantService) UpdateStatus(ctx context.Context, id string, status model.Status) (*model.Tenant, error) {
+	if m.updateStatusFunc != nil {
+		return m.updateStatusFunc(ctx, id, status)
+	}
+	return nil, nil
+}
+
+func (m *mockTenantService) Delete(ctx context.Context, id string) error {
+	if m.deleteFunc != nil {
+		return m.deleteFunc(ctx, id)
+	}
+	return nil
 }
 
 func setupTestApp(svc *mockTenantService) *fiber.App {

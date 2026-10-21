@@ -168,3 +168,32 @@ export async function getTenants(params: ListTenantsParams = {}): Promise<Pagina
     },
   };
 }
+
+export interface UpdateTenantInput {
+  name: string;
+  description?: string;
+}
+
+export async function updateTenant(id: string, input: UpdateTenantInput): Promise<Tenant> {
+  const response = await apiClient.put<ApiResponse<Tenant>>(`/tenants/${encodeURIComponent(id)}`, input);
+  if (response.data.data) {
+    return response.data.data;
+  }
+  const code = response.data.message_code || 'E021003';
+  const dict = errorDictionaries[getClientLocale()] || errorDictionaries.en;
+  throw new TenantApiError(code, dict[code] || 'Failed to update tenant');
+}
+
+export async function updateTenantStatus(id: string, status: 'active' | 'suspended'): Promise<Tenant> {
+  const response = await apiClient.patch<ApiResponse<Tenant>>(`/tenants/${encodeURIComponent(id)}/status`, { status });
+  if (response.data.data) {
+    return response.data.data;
+  }
+  const code = response.data.message_code || 'E021004';
+  const dict = errorDictionaries[getClientLocale()] || errorDictionaries.en;
+  throw new TenantApiError(code, dict[code] || 'Failed to update tenant status');
+}
+
+export async function deleteTenant(id: string): Promise<void> {
+  await apiClient.delete(`/tenants/${encodeURIComponent(id)}`);
+}

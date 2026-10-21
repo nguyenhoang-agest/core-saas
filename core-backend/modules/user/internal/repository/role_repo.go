@@ -429,17 +429,19 @@ func (r *PostgresRoleRepository) bumpAuthzVersionTx(tx *gorm.DB, tenantID string
 				Version:   1,
 				UpdatedAt: time.Now(),
 			}
-			return tx.Create(&av).Error
+			if err := tx.Create(&av).Error; err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
-	}
-	av.Version++
-	av.UpdatedAt = time.Now()
-	if err := tx.Save(&av).Error; err != nil {
-		return err
+	} else {
+		av.Version++
+		av.UpdatedAt = time.Now()
+		if err := tx.Save(&av).Error; err != nil {
+			return err
+		}
 	}
 
-	// Trigger PostgreSQL NOTIFY on channel authz_invalidation
-	_ = tx.Exec("NOTIFY authz_invalidation, ?", tenantID).Error
-	return nil
+	return tx.Exec("SELECT pg_notify('authz_invalidation', ?)", tenantID).Error
 }
