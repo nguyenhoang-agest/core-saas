@@ -8,3 +8,9 @@ database:
 
 logger:
   level: "debug"
+
+auth:
+  jwt_secret: "dev-insecure-secret-key-change-in-production-12345"
+  access_expiry: "15m"
+  refresh_expiry: "168h"
+  allow_legacy_auth: true

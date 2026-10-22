@@ -1,15 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import {
   Plus,
   Building2,
   CheckCircle2,
   Info,
   ShieldCheck,
+  ShieldAlert,
   Server,
   Database,
   ArrowRight,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -22,12 +26,17 @@ import type { Tenant } from '../types/tenant';
 
 export function TenantAdminPage() {
   const { t } = useI18n();
+  const { data: session, status } = useSession();
+  const isHost = !!(session?.user as any)?.isHost;
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newlyCreatedTenant, setNewlyCreatedTenant] = useState<Tenant | null>(null);
+  const [createdOwnerInfo, setCreatedOwnerInfo] = useState<{ name: string; email: string } | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
 
-  const handleTenantCreated = (tenant: Tenant) => {
+  const handleTenantCreated = (tenant: Tenant, owner?: { name: string; email: string }) => {
     setNewlyCreatedTenant(tenant);
+    setCreatedOwnerInfo(owner || null);
     setSelectedTenantId(tenant.id);
   };
 
@@ -38,6 +47,37 @@ export function TenantAdminPage() {
       el.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  if (status === 'authenticated' && !isHost) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <Card className="max-w-md w-full border-neutral-200 text-center shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mb-2">
+              <ShieldAlert className="h-6 w-6 text-amber-600" />
+            </div>
+            <CardTitle className="text-lg font-semibold text-neutral-900">
+              {t('tenant.restricted_title', 'Platform Management Restricted')}
+            </CardTitle>
+            <CardDescription className="text-xs text-neutral-500">
+              {t(
+                'tenant.restricted_desc',
+                'Global tenant provisioning and workspace switching are restricted to Platform Administrators. As a workspace Owner, you manage your organization from Users and Settings.'
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2 pb-6">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="gap-2 text-xs">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {t('common.back_to_dashboard', 'Back to Dashboard')}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -83,6 +123,15 @@ export function TenantAdminPage() {
                   `Tenant "${newlyCreatedTenant.name}" successfully created!`
                 )}
               </div>
+              {createdOwnerInfo && (
+                <div className="text-emerald-800 font-medium text-xs mt-1">
+                  {t(
+                    'tenant.page.owner_provisioned_info',
+                    { email: createdOwnerInfo.email, name: createdOwnerInfo.name },
+                    `Initial Owner: ${createdOwnerInfo.name} (${createdOwnerInfo.email}) — Ready to sign in at /login.`
+                  )}
+                </div>
+              )}
               <div className="text-emerald-700 font-mono text-[11px] mt-0.5">
                 {t(
                   'tenant.page.created_details',
@@ -96,7 +145,10 @@ export function TenantAdminPage() {
             size="sm"
             variant="outline"
             className="text-xs bg-white text-emerald-900 border-emerald-200 hover:bg-emerald-50"
-            onClick={() => setNewlyCreatedTenant(null)}
+            onClick={() => {
+              setNewlyCreatedTenant(null);
+              setCreatedOwnerInfo(null);
+            }}
           >
             {t('common.dismiss', 'Dismiss')}
           </Button>

@@ -14,6 +14,7 @@ type CreateUserRequest struct {
 	Permissions []string     `json:"permissions,omitempty"`
 	Status      model.Status `json:"status,omitempty" validate:"omitempty,oneof=active suspended invited"`
 	Phone       string       `json:"phone,omitempty" validate:"omitempty,max=50"`
+	Password    string       `json:"password,omitempty" validate:"omitempty,min=8"`
 }
 
 type UpdateUserRequest struct {

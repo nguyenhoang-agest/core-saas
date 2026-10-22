@@ -1,6 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
+
+function useSafeSession() {
+  try {
+    return useSession();
+  } catch {
+    return { data: null, status: 'unauthenticated' as const };
+  }
+}
 
 export interface TenantTheme {
   colorPrimary: string;
@@ -47,35 +56,73 @@ export function TenantProvider({
   children: React.ReactNode;
   initialTenant?: TenantConfig;
 }) {
+  const sessionResult = useSafeSession();
+  const session = sessionResult?.data;
+  const status = sessionResult?.status;
+
   const [tenant, setTenant] = useState<TenantConfig>(initialTenant);
 
-  // Read persisted tenant from cookie on client mount
+  // Sync active tenant whenever authenticated session changes
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const match = document.cookie.match(/(?:^|; )x-tenant-id=([^;]*)/);
-      if (match && match[1]) {
-        const cookieTenantId = decodeURIComponent(match[1]);
-        if (cookieTenantId) {
-          let savedName = cookieTenantId;
-          try {
-            savedName = localStorage.getItem('core_saas_tenant_name') || cookieTenantId;
-          } catch {
-            // ignore
-          }
-          setTenant((prev) => {
-            if (prev.id !== cookieTenantId) {
-              return {
-                ...prev,
-                id: cookieTenantId,
-                name: savedName,
-              };
-            }
-            return prev;
-          });
+    if (status === 'unauthenticated') {
+      setTenant(DEFAULT_TENANT_CONFIG);
+      return;
+    }
+
+    if (status !== 'authenticated' || !session?.user) return;
+
+    const userTenantId = (session.user as any).tenantId;
+    const userTenantName = (session.user as any).tenantName || userTenantId;
+    const isHost = !!(session.user as any).isHost;
+
+    if (!isHost && userTenantId) {
+      // Non-host users (such as tenant owners) are strictly bound to their own workspace.
+      // Automatically overwrite any leftover admin tenant cookie or localStorage.
+      setTenant((prev) => {
+        if (prev.id !== userTenantId || prev.name !== userTenantName) {
+          return {
+            ...prev,
+            id: userTenantId,
+            name: userTenantName,
+          };
+        }
+        return prev;
+      });
+
+      if (typeof document !== 'undefined') {
+        document.cookie = `x-tenant-id=${encodeURIComponent(userTenantId)}; path=/; max-age=31536000; SameSite=Lax`;
+        try {
+          localStorage.setItem('core_saas_tenant_id', userTenantId);
+          localStorage.setItem('core_saas_tenant_name', userTenantName);
+        } catch {
+          // ignore
         }
       }
+    } else if (isHost) {
+      // Host administrator: read persisted tenant or default to session tenant
+      if (typeof document !== 'undefined') {
+        const match = document.cookie.match(/(?:^|; )x-tenant-id=([^;]*)/);
+        const cookieTenantId = match && match[1] ? decodeURIComponent(match[1]) : '';
+        const effectiveId = cookieTenantId || userTenantId || 'default';
+        let savedName = effectiveId;
+        try {
+          savedName = localStorage.getItem('core_saas_tenant_name') || userTenantName || effectiveId;
+        } catch {
+          // ignore
+        }
+        setTenant((prev) => {
+          if (prev.id !== effectiveId || prev.name !== savedName) {
+            return {
+              ...prev,
+              id: effectiveId,
+              name: savedName,
+            };
+          }
+          return prev;
+        });
+      }
     }
-  }, []);
+  }, [status, session]);
 
   const handleSetTenant = (nextTenant: TenantConfig) => {
     setTenant(nextTenant);

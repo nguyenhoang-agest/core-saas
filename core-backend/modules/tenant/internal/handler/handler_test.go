@@ -450,3 +450,66 @@ func TestListTenants_InvalidStatusValidation(t *testing.T) {
 		t.Fatalf("expected status 400 for invalid status query param, got %d", resp.StatusCode)
 	}
 }
+
+func TestTenantHandler_ScopeIsolation(t *testing.T) {
+	mockSvc := &mockTenantService{
+		getByIDFunc: func(ctx context.Context, id string) (*model.Tenant, error) {
+			return &model.Tenant{
+				BaseModel: model.BaseModel{Id: id},
+				Name:      "Target Tenant",
+			}, nil
+		},
+	}
+
+	app := fiber.New(fiber.Config{
+		ErrorHandler: httpx.ErrorHandlerFnc,
+	})
+	// Simulate non-host middleware setting locals
+	app.Use(func(c fiber.Ctx) error {
+		if c.Get("X-Mock-Host") == "true" {
+			c.Locals("is_host", true)
+			c.Locals("tenant_id", "default")
+		} else {
+			c.Locals("is_host", false)
+			c.Locals("tenant_id", "tenant-alpha")
+		}
+		return c.Next()
+	})
+
+	h := handler.NewHandler(mockSvc)
+	h.RegisterRoutes(app)
+
+	t.Run("Non-host caller accessing their own tenant succeeds", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/tenant-alpha", nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Non-host caller accessing another tenant is forbidden", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/tenant-beta", nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("expected 403 Forbidden, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("Host admin accessing another tenant succeeds", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/tenant-beta", nil)
+		req.Header.Set("X-Mock-Host", "true")
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+	})
+}

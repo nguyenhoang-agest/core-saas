@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,6 +15,14 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
 	Logger   LoggerConfig   `yaml:"logger"`
+	Auth     AuthConfig     `yaml:"auth"`
+}
+
+type AuthConfig struct {
+	JWTSecret       string        `yaml:"jwt_secret"`
+	AccessExpiry    time.Duration `yaml:"access_expiry"`
+	RefreshExpiry   time.Duration `yaml:"refresh_expiry"`
+	AllowLegacyAuth bool          `yaml:"allow_legacy_auth"`
 }
 
 type ServerConfig struct {
@@ -43,6 +52,12 @@ func Default() *Config {
 		},
 		Logger: LoggerConfig{
 			Level: "info",
+		},
+		Auth: AuthConfig{
+			JWTSecret:       "dev-insecure-secret-key-change-in-production-12345",
+			AccessExpiry:    15 * time.Minute,
+			RefreshExpiry:   7 * 24 * time.Hour,
+			AllowLegacyAuth: true,
 		},
 	}
 }
@@ -141,6 +156,13 @@ func Load(filePath string) (*Config, error) {
 	}
 	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
 		cfg.Logger.Level = lvl
+	}
+
+	if secret := os.Getenv("JWT_SECRET"); secret != "" {
+		cfg.Auth.JWTSecret = secret
+	}
+	if legacyAuth := os.Getenv("ALLOW_LEGACY_AUTH"); legacyAuth != "" {
+		cfg.Auth.AllowLegacyAuth = legacyAuth == "true" || legacyAuth == "1"
 	}
 
 	return cfg, nil

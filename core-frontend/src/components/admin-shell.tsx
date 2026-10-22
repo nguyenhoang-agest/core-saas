@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import {
   Building2,
   LayoutDashboard,
@@ -12,10 +13,13 @@ import {
   ChevronRight,
   ExternalLink,
   Users as UsersIcon,
+  LogOut,
+  LogIn,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/core/tenant/tenant-context';
 import { useI18n } from '@/core/i18n/i18n-context';
+import { isProtectedRoute, isAuthRoute } from '@/core/auth/routes';
 import { appConfig } from '@/../config/app.config';
 import { moduleRegistry } from '@/core/modules/registry';
 import { LocaleSwitcher } from './locale-switcher';
@@ -27,6 +31,8 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  hostOnly?: boolean;
+  authRequired?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -35,13 +41,16 @@ const navItems: NavItem[] = [
     fallback: 'Overview',
     href: '/',
     icon: LayoutDashboard,
+    authRequired: false,
   },
   {
     titleKey: 'nav.tenants',
     fallback: 'Tenants',
     href: '/tenants',
     icon: Building2,
-    badge: 'Core',
+    badge: 'Platform',
+    hostOnly: true,
+    authRequired: true,
   },
   {
     titleKey: 'nav.users',
@@ -49,19 +58,45 @@ const navItems: NavItem[] = [
     href: '/users',
     icon: UsersIcon,
     badge: 'RBAC',
+    authRequired: true,
   },
   {
     titleKey: 'nav.settings',
     fallback: 'Settings',
     href: '/settings',
     icon: Settings,
+    authRequired: true,
   },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const { tenant } = useTenant();
   const { t } = useI18n();
+
+  const isAuthenticated = status === 'authenticated';
+  const isHost = !!(session?.user as any)?.isHost;
+  const isAuth = isAuthRoute(pathname || '');
+  const isProtected = isProtectedRoute(pathname || '');
+
+  React.useEffect(() => {
+    if (isProtected && status === 'unauthenticated') {
+      const redirectUrl = `/login?callbackUrl=${encodeURIComponent(pathname || '/')}`;
+      router.replace(redirectUrl);
+    }
+  }, [isProtected, status, pathname, router]);
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.authRequired !== false && !isAuthenticated) return false;
+    if (item.hostOnly && !isHost) return false;
+    return true;
+  });
+
+  if (isAuth) {
+    return <main className="min-h-screen bg-neutral-50">{children}</main>;
+  }
 
   const getBreadcrumbs = () => {
     const rootItem = { label: t('shell.admin', 'Admin'), href: '/' };
@@ -125,7 +160,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <div className="px-2 pb-2 text-[10px] font-semibold tracking-wider text-neutral-600 uppercase">
               {t('shell.platform_modules', 'Platform Modules')}
             </div>
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -168,21 +203,38 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Sidebar Footer: Current Tenant Context */}
-        <div className="p-3 border-t border-neutral-200 bg-neutral-50/50">
-          <div className="rounded-md border border-neutral-200 bg-white p-2.5 text-xs">
-            <div className="flex items-center justify-between text-neutral-600 mb-1">
-              <span className="text-[10px] uppercase font-semibold tracking-wider">
-                {t('shell.tenant_context', 'Tenant Context')}
-              </span>
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-            </div>
-            <div className="font-medium text-neutral-900 truncate">{tenant.name}</div>
-            <div className="text-[10px] font-mono text-neutral-600 truncate mt-0.5">
-              id: {tenant.id}
+        {/* Sidebar Footer: Current Tenant Context or Guest Mode */}
+        {isAuthenticated ? (
+          <div className="p-3 border-t border-neutral-200 bg-neutral-50/50">
+            <div className="rounded-md border border-neutral-200 bg-white p-2.5 text-xs">
+              <div className="flex items-center justify-between text-neutral-600 mb-1">
+                <span className="text-[10px] uppercase font-semibold tracking-wider">
+                  {t('shell.tenant_context', 'Tenant Context')}
+                </span>
+                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
+              </div>
+              <div className="font-medium text-neutral-900 truncate">{tenant.name}</div>
+              <div className="text-[10px] font-mono text-neutral-600 truncate mt-0.5">
+                id: {tenant.id}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-3 border-t border-neutral-200 bg-neutral-50/50">
+            <div className="rounded-md border border-neutral-200 bg-white p-2.5 text-xs text-center space-y-2">
+              <span className="text-[11px] text-neutral-500 block">
+                {t('shell.guest_mode', 'Browsing as Guest')}
+              </span>
+              <Link
+                href="/login"
+                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 transition-colors"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>{t('shell.sign_in', 'Sign In')}</span>
+              </Link>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Main Content Area */}
@@ -222,7 +274,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
           {/* Right Header Badges */}
           <div className="flex items-center space-x-3 text-xs">
-            <TenantSwitcher />
+            {isHost ? (
+              <TenantSwitcher />
+            ) : isAuthenticated ? (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-neutral-200 bg-white text-neutral-800 text-xs font-medium max-w-[200px]"
+                title={tenant.name || tenant.id}
+              >
+                <Building2 className="h-3.5 w-3.5 text-neutral-600 shrink-0" />
+                <span className="truncate">{tenant.name || tenant.id}</span>
+              </div>
+            ) : null}
             <LocaleSwitcher />
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-600 text-[11px]">
               <Layers className="h-3.5 w-3.5 text-neutral-700 stroke-[1.5]" />
@@ -237,12 +299,76 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <span>{t('shell.docs', 'Docs')}</span>
               <ExternalLink className="h-3 w-3 stroke-[1.5]" />
             </a>
+
+            {/* User Session Profile & Sign Out */}
+            {status === 'authenticated' && session?.user ? (
+              <div className="flex items-center gap-2 pl-2 border-l border-neutral-200">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-full bg-neutral-900 text-white flex items-center justify-center font-semibold text-[11px] shadow-sm uppercase">
+                    {(session.user.name || session.user.email || 'U')[0]}
+                  </div>
+                  <div className="hidden lg:flex flex-col text-left">
+                    <span className="text-xs font-medium text-neutral-900 leading-tight">
+                      {session.user.name || session.user.email}
+                    </span>
+                    <span className="text-[10px] text-neutral-500 font-mono leading-tight">
+                      {session.user.email}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof document !== 'undefined') {
+                      document.cookie = 'x-tenant-id=; path=/; max-age=0; SameSite=Lax';
+                      try {
+                        localStorage.removeItem('core_saas_tenant_id');
+                        localStorage.removeItem('core_saas_tenant_name');
+                      } catch {
+                        // ignore
+                      }
+                    }
+                    signOut({ callbackUrl: '/login' });
+                  }}
+                  title={t('shell.sign_out', 'Sign Out')}
+                  className="p-1.5 rounded-md text-neutral-500 hover:text-red-600 hover:bg-neutral-100 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            ) : status === 'unauthenticated' ? (
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 transition-colors"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>{t('shell.sign_in', 'Sign In')}</span>
+              </Link>
+            ) : null}
           </div>
         </header>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="max-w-6xl mx-auto">{children}</div>
+          <div className="max-w-6xl mx-auto">
+            {isProtected && status === 'unauthenticated' ? (
+              <div className="min-h-[360px] flex flex-col items-center justify-center text-center space-y-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent" />
+                <p className="text-xs text-neutral-500 font-medium">
+                  {t('shell.redirecting_to_login', 'Sign in required. Redirecting to login...')}
+                </p>
+              </div>
+            ) : isProtected && status === 'loading' ? (
+              <div className="min-h-[360px] flex flex-col items-center justify-center text-center space-y-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-800" />
+                <p className="text-xs text-neutral-400 font-medium">
+                  {t('common.loading', 'Loading...')}
+                </p>
+              </div>
+            ) : (
+              children
+            )}
+          </div>
         </main>
       </div>
     </div>

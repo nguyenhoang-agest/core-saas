@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { isProtectedRoute } from './core/auth/routes';
 
 const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'app', 'admin', 'auth', 'mail', 'static']);
 
@@ -43,6 +44,21 @@ export function extractTenantFromHost(host: string | null): string {
  * Request interception using Next.js 16 proxy convention.
  */
 export function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Protected management routes require an active NextAuth session
+  if (isProtectedRoute(pathname)) {
+    const sessionToken =
+      request.cookies.get('next-auth.session-token')?.value ||
+      request.cookies.get('__Secure-next-auth.session-token')?.value;
+
+    if (!sessionToken) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   const host = request.headers.get('host');
 
   // Allow explicit header, query parameter, or cookie override
@@ -92,6 +108,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt
      */
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
   ],
 };

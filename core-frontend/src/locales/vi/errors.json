@@ -1,4 +1,8 @@
 {
+  "E010001": "Mã xác thực không hợp lệ hoặc sai định dạng.",
+  "E010002": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+  "E010003": "Mã làm mới đã hết hạn. Vui lòng đăng nhập lại.",
+  "E010004": "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.",
   "E020001": "Đã xảy ra lỗi máy chủ nội bộ. Vui lòng thử lại sau.",
   "E020002": "Đã xảy ra lỗi cơ sở dữ liệu.",
   "E021001": "Khởi tạo cơ sở dữ liệu cho Tenant thất bại.",
@@ -31,6 +35,9 @@
   "E032013": "Vai trò đã bị thay đổi bởi người dùng khác. Vui lòng tải lại trang và thử lại.",
   "E032014": "Tên vai trò là bắt buộc (tối thiểu 2 ký tự).",
   "E032015": "Mã định danh (slug) của vai trò là bắt buộc (tối thiểu 2 ký tự).",
+  "E032016": "Tên tổ chức hoặc không gian làm việc là bắt buộc (tối thiểu 3 ký tự).",
+  "E032017": "Một tổ chức với tên này đã tồn tại trong hệ thống.",
+  "E032018": "Mật khẩu phải có tối thiểu 8 ký tự.",
   "E040001": "Không tìm thấy tài nguyên được yêu cầu.",
   "E041001": "Không tìm thấy Tenant với mã định danh đã cung cấp.",
   "E042001": "Không tìm thấy người dùng với định danh đã chỉ định.",

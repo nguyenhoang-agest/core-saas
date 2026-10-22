@@ -23,5 +23,8 @@ const (
 	ConcurrencyConflict            // 2013 (E032013 - Optimistic locking conflict)
 	RoleNameRequired               // 2014
 	RoleSlugRequired               // 2015
+	OrgNameRequired                // 2016 (E032016)
+	OrgAlreadyExists               // 2017 (E032017)
+	PasswordTooShort               // 2018 (E032018)
 	// ONLY APPEND ERROR CODE
 )

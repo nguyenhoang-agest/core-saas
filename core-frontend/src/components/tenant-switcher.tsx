@@ -69,7 +69,7 @@ export function TenantSwitcher() {
             <Search className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
             <input
               type="text"
-              value={search}
+              value ={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search workspaces..."
               className="w-full text-xs bg-transparent border-none outline-none placeholder:text-neutral-400"

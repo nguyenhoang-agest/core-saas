@@ -5,11 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/example/core-backend/modules/tenant/api"
 	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/errcode"
 	"github.com/example/core-backend/modules/tenant/internal/model"
 	"github.com/example/core-backend/modules/tenant/internal/service"
 	"github.com/example/core-backend/pkg/db"
+	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/exceptions"
 )
 
@@ -65,6 +67,50 @@ func TestService_Create_DefaultShared(t *testing.T) {
 
 	if tenant.IsolateMode != model.IsolateModeShared {
 		t.Fatalf("expected isolate mode 'shared', got '%s'", tenant.IsolateMode)
+	}
+}
+
+func TestService_Create_WithOwner(t *testing.T) {
+	repo := &mockRepository{}
+	bus := eventbus.New()
+
+	var receivedEvt *api.TenantCreatedEvent
+	eventbus.Subscribe[api.TenantCreatedEvent](bus, api.TenantCreatedTopic, func(ctx context.Context, evt api.TenantCreatedEvent) error {
+		receivedEvt = &evt
+		return nil
+	})
+
+	svc := service.NewTenantService(repo, bus)
+
+	req := &dto.CreateTenantRequest{
+		Name:        "Stark Industries",
+		Description: "Defense and Energy",
+		Owner: &dto.CreateTenantOwnerInput{
+			Email:    "tony@stark.com",
+			Name:     "Tony Stark",
+			Password: "IronManPassword123!",
+		},
+	}
+
+	tenant, err := svc.Create(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tenant.Name != "Stark Industries" {
+		t.Fatalf("expected Stark Industries, got %s", tenant.Name)
+	}
+
+	if receivedEvt == nil {
+		t.Fatal("expected TenantCreatedEvent to be published")
+	}
+	if receivedEvt.OwnerEmail != "tony@stark.com" {
+		t.Fatalf("expected owner email tony@stark.com, got %s", receivedEvt.OwnerEmail)
+	}
+	if receivedEvt.OwnerName != "Tony Stark" {
+		t.Fatalf("expected owner name Tony Stark, got %s", receivedEvt.OwnerName)
+	}
+	if receivedEvt.OwnerPassword != "IronManPassword123!" {
+		t.Fatalf("expected owner password IronManPassword123!, got %s", receivedEvt.OwnerPassword)
 	}
 }
 

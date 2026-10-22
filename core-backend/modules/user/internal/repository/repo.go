@@ -16,7 +16,9 @@ type IUserRepository interface {
 	Create(ctx context.Context, user *model.User) error
 	GetByID(ctx context.Context, tenantID, id string) (*model.User, error)
 	GetByEmail(ctx context.Context, tenantID, email string) (*model.User, error)
+	GetByEmailAnyTenant(ctx context.Context, email string) ([]model.User, error)
 	Update(ctx context.Context, user *model.User) error
+	UpdateLastLogin(ctx context.Context, tenantID, userID string, loginAt time.Time) error
 	Delete(ctx context.Context, tenantID, id string) error
 	GetAll(ctx context.Context, tenantID string, req *dto.PaginationOptions) ([]model.User, int64, error)
 }
@@ -97,6 +99,32 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, tenantID, email
 	}
 
 	return &u, nil
+}
+
+func (r *PostgresUserRepository) GetByEmailAnyTenant(ctx context.Context, email string) ([]model.User, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("database connection is not initialized")
+	}
+
+	var users []model.User
+	if err := r.db.WithContext(ctx).
+		Where("email = ? AND delete_at IS NULL", email).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (r *PostgresUserRepository) UpdateLastLogin(ctx context.Context, tenantID, userID string, loginAt time.Time) error {
+	if r.db == nil {
+		return fmt.Errorf("database connection is not initialized")
+	}
+
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("tenant_id = ? AND id = ? AND delete_at IS NULL", tenantID, userID).
+		Update("last_login_at", loginAt).Error
 }
 
 func (r *PostgresUserRepository) Update(ctx context.Context, user *model.User) error {

@@ -238,6 +238,94 @@ describe('Tenant Module', () => {
       expect(screen.getByTestId('ssl-mode-managed')).toBeInTheDocument();
       expect(screen.getByText('require')).toBeInTheDocument();
     });
+
+    it('validates owner fields and generates a secure password', async () => {
+      renderWithProviders(<CreateTenantDialog open={true} onOpenChange={() => {}} />);
+
+      // Fill valid tenant name
+      fireEvent.change(screen.getByLabelText(/Tenant Name/i), {
+        target: { value: 'Wayne Enterprises' },
+      });
+
+      // Submit without filling owner fields
+      const submitBtn = screen.getByRole('button', { name: /Create Tenant/i });
+      fireEvent.click(submitBtn);
+
+      expect(screen.getByText('Owner name is required.')).toBeInTheDocument();
+      expect(screen.getByText('Owner email is required.')).toBeInTheDocument();
+      expect(screen.getByText('Owner password is required.')).toBeInTheDocument();
+
+      // Click "Generate" password button
+      const generateBtn = screen.getByRole('button', { name: /Generate/i });
+      fireEvent.click(generateBtn);
+
+      const passwordInput = screen.getByLabelText(/Initial Password/i) as HTMLInputElement;
+      expect(passwordInput.value.length).toBe(12);
+
+      // Fill owner name and invalid email
+      fireEvent.change(screen.getByLabelText(/Owner Full Name/i), {
+        target: { value: 'Bruce Wayne' },
+      });
+      fireEvent.change(screen.getByLabelText(/Owner Email/i), {
+        target: { value: 'invalid-email' },
+      });
+
+      fireEvent.click(submitBtn);
+      expect(screen.getByText('Please enter a valid owner email address.')).toBeInTheDocument();
+    });
+
+    it('submits payload with owner details and triggers onSuccess', async () => {
+      const onSuccessMock = vi.fn();
+      renderWithProviders(<CreateTenantDialog open={true} onOpenChange={() => {}} onSuccess={onSuccessMock} />);
+
+      fireEvent.change(screen.getByLabelText(/Tenant Name/i), {
+        target: { value: 'Wayne Enterprises' },
+      });
+      fireEvent.change(screen.getByLabelText(/Owner Full Name/i), {
+        target: { value: 'Bruce Wayne' },
+      });
+      fireEvent.change(screen.getByLabelText(/Owner Email/i), {
+        target: { value: 'bruce@wayne.com' },
+      });
+      fireEvent.change(screen.getByLabelText(/Initial Password/i), {
+        target: { value: 'Batman2026!' },
+      });
+
+      const submitBtn = screen.getByRole('button', { name: /Create Tenant/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(onSuccessMock).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'new-id' }),
+          { name: 'Bruce Wayne', email: 'bruce@wayne.com' }
+        );
+      });
+    });
+
+    it('allows toggling off owner creation to provision headless tenant', async () => {
+      const onSuccessMock = vi.fn();
+      renderWithProviders(<CreateTenantDialog open={true} onOpenChange={() => {}} onSuccess={onSuccessMock} />);
+
+      fireEvent.change(screen.getByLabelText(/Tenant Name/i), {
+        target: { value: 'Headless Corp' },
+      });
+
+      // Uncheck owner creation
+      const toggleCheckbox = screen.getByRole('checkbox', { name: /Create Owner Account/i });
+      fireEvent.click(toggleCheckbox);
+
+      expect(screen.queryByLabelText(/Owner Full Name/i)).not.toBeInTheDocument();
+
+      const submitBtn = screen.getByRole('button', { name: /Create Tenant/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(onSuccessMock).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'new-id' }),
+          undefined
+        );
+      });
+    });
   });
 
   describe('TenantListTable', () => {

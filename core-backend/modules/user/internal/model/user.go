@@ -109,9 +109,10 @@ type User struct {
 	Role        string      `gorm:"column:role;type:varchar(50);not null;default:'member'" json:"role"`
 	Permissions StringArray `gorm:"column:permissions;type:text[];not null;default:'{}'" json:"permissions"`
 	Status      Status      `gorm:"column:status;type:varchar(50);not null;default:'active'" json:"status"`
-	Phone       string      `gorm:"column:phone;type:varchar(50)" json:"phone,omitempty"`
-	AvatarURL   string      `gorm:"column:avatar_url;type:varchar(512)" json:"avatar_url,omitempty"`
-	LastLoginAt *time.Time  `gorm:"column:last_login_at;type:timestamptz" json:"last_login_at,omitempty"`
+	Phone        string      `gorm:"column:phone;type:varchar(50)" json:"phone,omitempty"`
+	AvatarURL    string      `gorm:"column:avatar_url;type:varchar(512)" json:"avatar_url,omitempty"`
+	PasswordHash string      `gorm:"column:password_hash;type:varchar(255)" json:"-"`
+	LastLoginAt  *time.Time  `gorm:"column:last_login_at;type:timestamptz" json:"last_login_at,omitempty"`
 }
 
 func (User) TableName() string {

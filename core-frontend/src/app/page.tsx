@@ -18,16 +18,21 @@ import {
   Settings,
   ExternalLink,
   CheckCircle2,
+  LogIn,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useSession } from 'next-auth/react';
 import { useTenant } from '@/core/tenant/tenant-context';
 import { useI18n } from '@/core/i18n/i18n-context';
 
 export default function HomePage() {
   const { tenant } = useTenant();
   const { t } = useI18n();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === 'authenticated';
+  const isHost = !!(session?.user as any)?.isHost;
 
   const coreModules = [
     {
@@ -120,34 +125,77 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Link href="/tenants">
-              <Button className="gap-2">
-                <Building2 className="h-4 w-4" />
-                <span>Manage Tenants</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-            <Link href="/users">
-              <Button variant="outline" className="gap-2">
-                <Users className="h-4 w-4" />
-                <span>Manage Users & Roles</span>
-              </Button>
-            </Link>
+            {isAuthenticated ? (
+              <>
+                {isHost && (
+                  <Link href="/tenants">
+                    <Button className="gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span>Manage Tenants</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                )}
+                <Link href="/users">
+                  <Button variant={isHost ? 'outline' : 'default'} className="gap-2">
+                    <Users className="h-4 w-4" />
+                    <span>Manage Users & Roles</span>
+                    {!isHost && <ArrowRight className="h-3.5 w-3.5" />}
+                  </Button>
+                </Link>
+                {!isHost && (
+                  <Link href="/settings">
+                    <Button variant="outline" className="gap-2">
+                      <Settings className="h-4 w-4" />
+                      <span>Workspace Settings</span>
+                    </Button>
+                  </Link>
+                )}
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button className="gap-2">
+                    <LogIn className="h-4 w-4" />
+                    <span>Sign In to Console</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="outline" className="gap-2">
+                    <span>Create Organization</span>
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
         {/* Current Active Workspace Indicator Bar */}
         <div className="pt-4 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-neutral-500">Active Workspace:</span>
-            <div className="inline-flex items-center gap-1.5 font-semibold text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span>{tenant.name}</span>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-500">Active Workspace:</span>
+              <div className="inline-flex items-center gap-1.5 font-semibold text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span>{tenant.name}</span>
+              </div>
+              <span className="font-mono text-[11px] text-neutral-400">
+                ({tenant.id === 'default' ? 'Default Host' : tenant.id})
+              </span>
             </div>
-            <span className="font-mono text-[11px] text-neutral-400">
-              ({tenant.id === 'default' ? 'Default Host' : tenant.id})
-            </span>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-500">System Mode:</span>
+              <div className="inline-flex items-center gap-1.5 font-semibold text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span>Public Preview • Guest</span>
+              </div>
+              <span className="text-[11px] text-neutral-400">
+                (Sign in required to access management consoles)
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-neutral-600">
@@ -211,13 +259,24 @@ export default function HomePage() {
                     ))}
                   </div>
                   <div className="pt-2 border-t border-neutral-100">
-                    <Link
-                      href={m.href}
-                      className="inline-flex items-center text-xs font-medium text-neutral-900 hover:text-neutral-700 gap-1 group"
-                    >
-                      <span>Open Module</span>
-                      <ArrowRight className="h-3 w-3 stroke-[1.5] group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
+                    {isAuthenticated ? (
+                      <Link
+                        href={m.href}
+                        className="inline-flex items-center text-xs font-medium text-neutral-900 hover:text-neutral-700 gap-1 group"
+                      >
+                        <span>Open Module</span>
+                        <ArrowRight className="h-3 w-3 stroke-[1.5] group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/login?callbackUrl=${encodeURIComponent(m.href)}`}
+                        className="inline-flex items-center text-xs font-medium text-neutral-700 hover:text-neutral-900 gap-1 group"
+                      >
+                        <Lock className="h-3 w-3 text-neutral-400" />
+                        <span>Sign In to Access</span>
+                        <ArrowRight className="h-3 w-3 stroke-[1.5] group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>

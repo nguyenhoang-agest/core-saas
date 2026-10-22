@@ -1,4 +1,8 @@
 {
+  "E010001": "Invalid or malformed authentication token.",
+  "E010002": "Your session has expired. Please log in again.",
+  "E010003": "Refresh token expired. Please log in again.",
+  "E010004": "Incorrect email or password. Please verify your credentials.",
   "E020001": "An internal server error occurred. Please try again later.",
   "E020002": "A database error occurred.",
   "E021001": "Failed to provision tenant workspace in the database.",
@@ -31,6 +35,9 @@
   "E032013": "The role was modified by another user. Please refresh and try again.",
   "E032014": "Role name is required (minimum 2 characters).",
   "E032015": "Role identifier slug is required (minimum 2 characters).",
+  "E032016": "Organization or workspace name is required (minimum 3 characters).",
+  "E032017": "An organization with this name already exists.",
+  "E032018": "Password must be at least 8 characters.",
   "E040001": "The requested resource was not found.",
   "E041001": "Tenant not found with the specified ID.",
   "E042001": "User not found with the specified ID.",

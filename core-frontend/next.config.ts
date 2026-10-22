@@ -14,12 +14,16 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     const backendUrl = process.env.BACKEND_INTERNAL_URL || 'http://localhost:8080';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${backendUrl}/:path*`,
+        },
+      ],
+    };
   },
 };
 

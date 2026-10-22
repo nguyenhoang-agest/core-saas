@@ -8,7 +8,7 @@ import (
 type CreateTenantOwnerInput struct {
 	Email    string `json:"email" validate:"required,email"`
 	Name     string `json:"name" validate:"required,min=2,max=100"`
-	Password string `json:"password,omitempty" validate:"omitempty,min=8"`
+	Password string `json:"password" validate:"required,min=8"`
 }
 
 type CreateTenantRequest struct {

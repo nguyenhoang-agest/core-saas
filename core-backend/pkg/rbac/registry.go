@@ -56,6 +56,7 @@ func (r *Registry) initDefaultCatalog() {
 
 		// Tenant Management
 		{Key: "tenant:view", Module: "tenant", Scope: ScopeTenant, I18nNameKey: "tenant.permissions.view.name", I18nDescKey: "tenant.permissions.view.desc"},
+		{Key: "tenant:list", Module: "tenant", Scope: ScopePlatform, I18nNameKey: "tenant.permissions.list.name", I18nDescKey: "tenant.permissions.list.desc"},
 		{Key: "tenant:update", Module: "tenant", Scope: ScopeTenant, I18nNameKey: "tenant.permissions.update.name", I18nDescKey: "tenant.permissions.update.desc"},
 		{Key: "tenant:create", Module: "tenant", Scope: ScopePlatform, I18nNameKey: "tenant.permissions.create.name", I18nDescKey: "tenant.permissions.create.desc"},
 		{Key: "tenant:delete", Module: "tenant", Scope: ScopePlatform, I18nNameKey: "tenant.permissions.delete.name", I18nDescKey: "tenant.permissions.delete.desc"},

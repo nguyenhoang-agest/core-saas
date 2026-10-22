@@ -3,10 +3,12 @@ package tenant
 import (
 	"context"
 	"embed"
+	"os"
 
 	"github.com/example/core-backend/modules/tenant/internal/handler"
 	"github.com/example/core-backend/modules/tenant/internal/repository"
 	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/auth"
 	"github.com/example/core-backend/pkg/db"
 	"github.com/example/core-backend/pkg/db/router"
 	"github.com/example/core-backend/pkg/eventbus"
@@ -22,10 +24,11 @@ var migrationsFS embed.FS
 var _ kernel.Module = (*Module)(nil)
 
 type Module struct {
-	pool    *pgxpool.Pool
-	bus     *eventbus.Bus
-	service service.ITenantService
-	handler *handler.Handler
+	pool      *pgxpool.Pool
+	bus       *eventbus.Bus
+	service   service.ITenantService
+	handler   *handler.Handler
+	jwtSecret string
 }
 
 func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
@@ -34,11 +37,17 @@ func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
 	svc := service.NewTenantService(repo, bus)
 	h := handler.NewHandler(svc)
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "dev-insecure-secret-key-change-in-production-12345"
+	}
+
 	return &Module{
-		pool:    pool,
-		bus:     bus,
-		service: svc,
-		handler: h,
+		pool:      pool,
+		bus:       bus,
+		service:   svc,
+		handler:   h,
+		jwtSecret: jwtSecret,
 	}
 }
 
@@ -47,7 +56,7 @@ func (m *Module) Name() string {
 }
 
 func (m *Module) Register(r fiber.Router) error {
-	group := r.Group("/tenants")
+	group := r.Group("/tenants", auth.OptionalJWTAuthMiddleware(m.jwtSecret))
 	m.handler.RegisterRoutes(group)
 	return nil
 }

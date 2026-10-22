@@ -29,11 +29,15 @@
   },
   "shell": {
     "admin": "Quản trị",
-    "admin_console": "admin",
+    "admin_console": "Bảng Điều Khiển Quản Trị",
     "platform_modules": "Module Nền Tảng",
     "tenant_context": "Ngữ Cảnh Tenant",
     "multi_tenant_arch": "Kiến Trúc Đa Tenant",
-    "docs": "Tài liệu"
+    "docs": "Tài liệu",
+    "sign_in": "Đăng nhập",
+    "sign_out": "Đăng xuất",
+    "guest_mode": "Duyệt với tư cách Khách",
+    "redirecting_to_login": "Yêu cầu đăng nhập. Đang chuyển hướng..."
   },
   "tenant": {
     "page": {
@@ -41,6 +45,7 @@
       "description": "Khởi tạo, tra cứu và chuyển đổi không gian làm việc tenant. Xây dựng trên nền Go Fiber với bộ điều hướng cơ sở dữ liệu động và xử lý lỗi 3 tầng.",
       "provision_btn": "Khởi Tạo Tenant",
       "created_success": "Đã tạo thành công tenant \"{name}\"!",
+      "owner_provisioned_info": "Chủ sở hữu ban đầu: {name} ({email}) — Sẵn sàng đăng nhập tại /login.",
       "created_details": "ID: {id} • Chế độ: {mode}"
     },
     "kpi": {
@@ -66,6 +71,16 @@
       "name_placeholder": "Ví dụ: Acme Corporation, Stark Industries",
       "description_label": "Mô tả (Không bắt buộc)",
       "description_placeholder": "Ví dụ: Không gian làm việc production chính",
+      "owner_section_title": "Chủ Sở Hữu Không Gian Làm Việc",
+      "owner_section_desc": "Tạo tài khoản quản trị viên chính với vai trò \"owner\" cho không gian làm việc này.",
+      "provision_owner_toggle": "Tạo Tài Khoản Chủ Sở Hữu",
+      "owner_name_label": "Họ và Tên Chủ Sở Hữu",
+      "owner_name_placeholder": "Ví dụ: Tony Stark",
+      "owner_email_label": "Email Chủ Sở Hữu",
+      "owner_email_placeholder": "Ví dụ: tony@stark.com",
+      "owner_password_label": "Mật Khẩu Ban Đầu",
+      "owner_password_placeholder": "Tối thiểu 8 ký tự",
+      "generate_password": "Tạo tự động",
       "isolation_mode_label": "Chế Độ Cô Lập Dữ Liệu",
       "dedicated_params": "Tham Số Cơ Sở Dữ Liệu Dedicated",
       "dsn_label": "Chuỗi Kết Nối DSN",
@@ -80,6 +95,12 @@
       "validation": {
         "name_required": "Tên Tenant là bắt buộc.",
         "name_min_length": "Tên Tenant phải có tối thiểu 3 ký tự.",
+        "owner_name_required": "Tên chủ sở hữu là bắt buộc.",
+        "owner_name_min_length": "Tên chủ sở hữu phải có tối thiểu 2 ký tự.",
+        "owner_email_required": "Email chủ sở hữu là bắt buộc.",
+        "owner_email_invalid": "Vui lòng nhập địa chỉ email hợp lệ.",
+        "owner_password_required": "Mật khẩu chủ sở hữu là bắt buộc.",
+        "owner_password_min": "Mật khẩu phải có tối thiểu 8 ký tự.",
         "dsn_required": "Chế độ Dedicated bắt buộc phải có DSN kết nối cơ sở dữ liệu."
       }
     },

@@ -33,7 +33,11 @@
     "platform_modules": "Platform Modules",
     "tenant_context": "Tenant Context",
     "multi_tenant_arch": "Multi-Tenant Architecture",
-    "docs": "Docs"
+    "docs": "Docs",
+    "sign_in": "Sign In",
+    "sign_out": "Sign Out",
+    "guest_mode": "Browsing as Guest",
+    "redirecting_to_login": "Sign in required. Redirecting to login..."
   },
   "tenant": {
     "page": {
@@ -41,6 +45,7 @@
       "description": "Provision, inspect, and switch active tenant workspaces. Built on top of the hardened Go Fiber backend with dynamic database routing and 3-layer typed error handling.",
       "provision_btn": "Provision Tenant",
       "created_success": "Tenant \"{name}\" successfully created!",
+      "owner_provisioned_info": "Initial Owner: {name} ({email}) — Ready to sign in at /login.",
       "created_details": "ID: {id} • Mode: {mode}"
     },
     "kpi": {
@@ -66,6 +71,16 @@
       "name_placeholder": "e.g. Acme Corporation, Stark Industries",
       "description_label": "Description (Optional)",
       "description_placeholder": "e.g. Primary production workspace",
+      "owner_section_title": "Initial Workspace Owner",
+      "owner_section_desc": "Creates the primary administrator account with role \"owner\" for this workspace.",
+      "provision_owner_toggle": "Create Owner Account",
+      "owner_name_label": "Owner Full Name",
+      "owner_name_placeholder": "e.g. Tony Stark",
+      "owner_email_label": "Owner Email",
+      "owner_email_placeholder": "e.g. tony@stark.com",
+      "owner_password_label": "Initial Password",
+      "owner_password_placeholder": "At least 8 characters",
+      "generate_password": "Generate",
       "isolation_mode_label": "Database Isolation Mode",
       "dedicated_params": "Dedicated DB Parameters",
       "dsn_label": "Connection DSN",
@@ -80,6 +95,12 @@
       "validation": {
         "name_required": "Tenant name is required.",
         "name_min_length": "Tenant name must be at least 3 characters.",
+        "owner_name_required": "Owner name is required.",
+        "owner_name_min_length": "Owner name must be at least 2 characters.",
+        "owner_email_required": "Owner email is required.",
+        "owner_email_invalid": "Please enter a valid owner email address.",
+        "owner_password_required": "Owner password is required.",
+        "owner_password_min": "Password must be at least 8 characters.",
         "dsn_required": "Database connection DSN is required for dedicated isolation mode."
       }
     },

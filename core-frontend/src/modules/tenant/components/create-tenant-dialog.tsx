@@ -9,6 +9,10 @@ import {
   Database,
   ShieldCheck,
   Lock,
+  User,
+  RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,7 +32,7 @@ import type { Tenant, TenantIsolateMode, CreateTenantInput } from '../types/tena
 interface CreateTenantDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (createdTenant: Tenant) => void;
+  onSuccess?: (createdTenant: Tenant, owner?: { name: string; email: string }) => void;
 }
 
 export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTenantDialogProps) {
@@ -37,6 +41,11 @@ export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTena
   const [description, setDescription] = useState('');
   const [isolateMode, setIsolateMode] = useState<TenantIsolateMode>('shared');
   const [dsn, setDsn] = useState('');
+  const [createOwner, setCreateOwner] = useState(true);
+  const [ownerName, setOwnerName] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
 
   const createTenantMutation = useCreateTenant();
@@ -46,8 +55,27 @@ export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTena
     setDescription('');
     setIsolateMode('shared');
     setDsn('');
+    setCreateOwner(true);
+    setOwnerName('');
+    setOwnerEmail('');
+    setOwnerPassword('');
+    setShowPassword(false);
     setClientErrors({});
     createTenantMutation.reset();
+  };
+
+  const generatePassword = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+    const array = new Uint8Array(12);
+    crypto.getRandomValues(array);
+    const pwd = Array.from(array, (byte) => chars[byte % chars.length]).join('');
+    setOwnerPassword(pwd);
+    setShowPassword(true);
+    setClientErrors((prev) => {
+      const next = { ...prev };
+      delete next.ownerPassword;
+      return next;
+    });
   };
 
   const validate = (): boolean => {
@@ -66,6 +94,45 @@ export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTena
         errors.dsn = t(
           'tenant.create.validation.dsn_required',
           'Database connection DSN is required for dedicated isolation mode.'
+        );
+      }
+    }
+
+    if (createOwner) {
+      if (!ownerName.trim()) {
+        errors.ownerName = t(
+          'tenant.create.validation.owner_name_required',
+          'Owner name is required.'
+        );
+      } else if (ownerName.trim().length < 2) {
+        errors.ownerName = t(
+          'tenant.create.validation.owner_name_min_length',
+          'Owner name must be at least 2 characters.'
+        );
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!ownerEmail.trim()) {
+        errors.ownerEmail = t(
+          'tenant.create.validation.owner_email_required',
+          'Owner email is required.'
+        );
+      } else if (!emailRegex.test(ownerEmail.trim())) {
+        errors.ownerEmail = t(
+          'tenant.create.validation.owner_email_invalid',
+          'Please enter a valid owner email address.'
+        );
+      }
+
+      if (!ownerPassword) {
+        errors.ownerPassword = t(
+          'tenant.create.validation.owner_password_required',
+          'Owner password is required.'
+        );
+      } else if (ownerPassword.length < 8) {
+        errors.ownerPassword = t(
+          'tenant.create.validation.owner_password_min',
+          'Password must be at least 8 characters.'
         );
       }
     }
@@ -92,12 +159,23 @@ export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTena
       };
     }
 
+    if (createOwner) {
+      payload.owner = {
+        name: ownerName.trim(),
+        email: ownerEmail.trim(),
+        password: ownerPassword,
+      };
+    }
+
     createTenantMutation.mutate(payload, {
       onSuccess: (newTenant) => {
+        const ownerInfo = createOwner
+          ? { name: ownerName.trim(), email: ownerEmail.trim() }
+          : undefined;
         resetForm();
         onOpenChange(false);
         if (onSuccess) {
-          onSuccess(newTenant);
+          onSuccess(newTenant, ownerInfo);
         }
       },
     });
@@ -129,7 +207,7 @@ export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTena
         </DialogDescription>
       </DialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {/* Backend Top Error Banner */}
         {backendError && (
           <div className="rounded-md border border-red-200 bg-red-50/70 p-3 text-xs text-red-900 flex items-start gap-2.5">
@@ -188,6 +266,148 @@ export function CreateTenantDialog({ open, onOpenChange, onSuccess }: CreateTena
               'e.g. Primary production workspace'
             )}
           />
+        </div>
+
+        {/* Workspace Owner Section */}
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <User className="h-4 w-4 text-neutral-900" />
+              <span className="text-xs font-semibold text-neutral-900">
+                {t('tenant.create.owner_section_title', 'Initial Workspace Owner')}
+              </span>
+            </div>
+            <label className="flex items-center gap-1.5 text-xs text-neutral-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={createOwner}
+                onChange={(e) => setCreateOwner(e.target.checked)}
+                className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 h-3.5 w-3.5"
+              />
+              <span>{t('tenant.create.provision_owner_toggle', 'Create Owner Account')}</span>
+            </label>
+          </div>
+          <p className="text-[11px] text-neutral-500 leading-tight">
+            {t(
+              'tenant.create.owner_section_desc',
+              'Creates the primary administrator account with role "owner" for this workspace.'
+            )}
+          </p>
+
+          {createOwner && (
+            <div className="space-y-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Owner Name */}
+                <div className="space-y-1">
+                  <Label htmlFor="owner-name" required className="text-xs">
+                    {t('tenant.create.owner_name_label', 'Owner Full Name')}
+                  </Label>
+                  <Input
+                    id="owner-name"
+                    value={ownerName}
+                    onChange={(e) => {
+                      setOwnerName(e.target.value);
+                      if (clientErrors.ownerName) {
+                        setClientErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.ownerName;
+                          return next;
+                        });
+                      }
+                    }}
+                    placeholder={t('tenant.create.owner_name_placeholder', 'e.g. Tony Stark')}
+                    className="h-8 text-xs"
+                    error={Boolean(clientErrors.ownerName || backendError?.fieldErrors?.['owner.name'])}
+                  />
+                  {(clientErrors.ownerName || backendError?.fieldErrors?.['owner.name']) && (
+                    <p className="text-[11px] text-red-600">
+                      {clientErrors.ownerName || backendError?.fieldErrors?.['owner.name']}
+                    </p>
+                  )}
+                </div>
+
+                {/* Owner Email */}
+                <div className="space-y-1">
+                  <Label htmlFor="owner-email" required className="text-xs">
+                    {t('tenant.create.owner_email_label', 'Owner Email')}
+                  </Label>
+                  <Input
+                    id="owner-email"
+                    type="email"
+                    value={ownerEmail}
+                    onChange={(e) => {
+                      setOwnerEmail(e.target.value);
+                      if (clientErrors.ownerEmail) {
+                        setClientErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.ownerEmail;
+                          return next;
+                        });
+                      }
+                    }}
+                    placeholder={t('tenant.create.owner_email_placeholder', 'e.g. tony@stark.com')}
+                    className="h-8 text-xs"
+                    error={Boolean(clientErrors.ownerEmail || backendError?.fieldErrors?.['owner.email'])}
+                  />
+                  {(clientErrors.ownerEmail || backendError?.fieldErrors?.['owner.email']) && (
+                    <p className="text-[11px] text-red-600">
+                      {clientErrors.ownerEmail || backendError?.fieldErrors?.['owner.email']}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Owner Password */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="owner-password" required className="text-xs">
+                    {t('tenant.create.owner_password_label', 'Initial Password')}
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={generatePassword}
+                    className="text-[11px] font-medium text-neutral-600 hover:text-neutral-900 flex items-center gap-1 underline underline-offset-2"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span>{t('tenant.create.generate_password', 'Generate')}</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="owner-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={ownerPassword}
+                    onChange={(e) => {
+                      setOwnerPassword(e.target.value);
+                      if (clientErrors.ownerPassword) {
+                        setClientErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.ownerPassword;
+                          return next;
+                        });
+                      }
+                    }}
+                    placeholder={t('tenant.create.owner_password_placeholder', 'At least 8 characters')}
+                    className="h-8 text-xs pr-8 font-mono"
+                    error={Boolean(clientErrors.ownerPassword || backendError?.fieldErrors?.['owner.password'])}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                {(clientErrors.ownerPassword || backendError?.fieldErrors?.['owner.password']) && (
+                  <p className="text-[11px] text-red-600">
+                    {clientErrors.ownerPassword || backendError?.fieldErrors?.['owner.password']}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Isolation Mode Selection (Flat Cards) */}

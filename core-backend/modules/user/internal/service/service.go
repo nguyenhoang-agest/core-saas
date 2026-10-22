@@ -10,6 +10,7 @@ import (
 	"github.com/example/core-backend/modules/user/internal/dto"
 	"github.com/example/core-backend/modules/user/internal/errcode"
 	"github.com/example/core-backend/modules/user/internal/model"
+	"github.com/example/core-backend/pkg/auth"
 	"github.com/example/core-backend/pkg/constants/response_code"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/exceptions"
@@ -84,14 +85,25 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) (*
 		return nil, exceptions.NewBadRequestError(errcode.UserAlreadyExists, nil)
 	}
 
+	var passwordHash string
+	if req.Password != "" {
+		hash, err := auth.HashPassword(req.Password)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to hash user password", "error", err)
+			return nil, exceptions.NewInternalServerError(response_code.InternalServerGeneral)
+		}
+		passwordHash = hash
+	}
+
 	user := &model.User{
-		TenantID:    tenantID,
-		Email:       email,
-		Name:        strings.TrimSpace(req.Name),
-		Role:        string(role),
-		Permissions: model.StringArray(req.Permissions),
-		Status:      status,
-		Phone:       strings.TrimSpace(req.Phone),
+		TenantID:     tenantID,
+		Email:        email,
+		Name:         strings.TrimSpace(req.Name),
+		Role:         string(role),
+		Permissions:  model.StringArray(req.Permissions),
+		Status:       status,
+		Phone:        strings.TrimSpace(req.Phone),
+		PasswordHash: passwordHash,
 	}
 
 	if err := s.repository.Create(ctx, user); err != nil {

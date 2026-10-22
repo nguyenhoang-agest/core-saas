@@ -5,6 +5,8 @@ import (
 
 	"github.com/example/core-backend/modules/tenant/internal/dto"
 	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/constants/response_code"
+	"github.com/example/core-backend/pkg/exceptions"
 	"github.com/example/core-backend/pkg/helpers"
 	"github.com/example/core-backend/pkg/httpx"
 	"github.com/example/core-backend/pkg/rbac"
@@ -20,7 +22,7 @@ func NewHandler(service service.ITenantService) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
-	r.Get("/", rbac.RequirePermission("tenant:view"), h.GetAllTenant)
+	r.Get("/", rbac.RequirePermission("tenant:list"), h.GetAllTenant)
 	r.Get("/:id", rbac.RequirePermission("tenant:view"), h.GetByID)
 	r.Post("/", rbac.RequirePermission("tenant:create"), h.Create)
 	r.Put("/:id", rbac.RequirePermission("tenant:update"), h.Update)
@@ -46,6 +48,13 @@ func (h *Handler) Create(c fiber.Ctx) error {
 
 func (h *Handler) GetByID(c fiber.Ctx) error {
 	id := c.Params("id")
+	isHost, _ := c.Locals("is_host").(bool)
+	callerTenantID, _ := c.Locals("tenant_id").(string)
+
+	if !isHost && callerTenantID != "" && callerTenantID != id {
+		return exceptions.NewForbiddenError(response_code.InsufficientPermission)
+	}
+
 	tenant, err := h.service.GetByID(c.Context(), id)
 	if err != nil {
 		return err
@@ -71,6 +80,13 @@ func (h *Handler) GetAllTenant(c fiber.Ctx) error {
 
 func (h *Handler) Update(c fiber.Ctx) error {
 	id := c.Params("id")
+	isHost, _ := c.Locals("is_host").(bool)
+	callerTenantID, _ := c.Locals("tenant_id").(string)
+
+	if !isHost && callerTenantID != "" && callerTenantID != id {
+		return exceptions.NewForbiddenError(response_code.InsufficientPermission)
+	}
+
 	var input dto.UpdateTenantRequest
 	if err := c.Bind().Body(&input); err != nil {
 		slog.ErrorContext(c.Context(), "Body validation error", "error", err)

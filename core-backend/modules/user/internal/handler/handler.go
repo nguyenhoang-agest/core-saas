@@ -26,7 +26,6 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 	r.Get("/permissions/meta", h.GetPermissionsMeta)
 	r.Get("/:id", h.GetByID)
 
-	// Protected mutating endpoints
 	r.Post("/", rbac.RequirePermission("iam:users:manage"), h.Create)
 	r.Put("/:id", rbac.RequirePermission("iam:users:manage"), h.Update)
 	r.Patch("/:id/status", rbac.RequirePermission("iam:users:manage"), h.UpdateStatus)

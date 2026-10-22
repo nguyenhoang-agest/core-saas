@@ -90,6 +90,7 @@ var SystemPermissionsCatalog = []PermissionDefinition{
 	{ID: "iam:roles:manage", Module: "iam", Name: "Manage Roles & ACL", Description: "Modify role assignments and custom ACL permissions", Scope: ScopeTenant},
 
 	{ID: "tenant:view", Module: "tenant", Name: "View Tenants", Description: "Inspect tenant workspaces and isolation modes", Scope: ScopeTenant},
+	{ID: "tenant:list", Module: "tenant", Name: "List All Tenants", Description: "Browse all tenant workspaces across the platform", Scope: ScopePlatform},
 	{ID: "tenant:update", Module: "tenant", Name: "Update Tenants", Description: "Modify tenant settings and connection configurations", Scope: ScopeTenant},
 	{ID: "tenant:create", Module: "tenant", Name: "Create Tenants", Description: "Provision new tenant workspaces", Scope: ScopePlatform},
 	{ID: "tenant:delete", Module: "tenant", Name: "Delete Tenants", Description: "Suspend or de-provision tenant workspaces", Scope: ScopePlatform},

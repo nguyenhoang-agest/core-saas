@@ -17,6 +17,12 @@ export interface Tenant {
   update_at?: string;
 }
 
+export interface CreateTenantOwnerInput {
+  name: string;
+  email: string;
+  password?: string;
+}
+
 export interface CreateTenantInput {
   name: string;
   description?: string;
@@ -26,6 +32,7 @@ export interface CreateTenantInput {
     max_conns?: number;
     ssl_mode?: string;
   };
+  owner?: CreateTenantOwnerInput;
 }
 
 export interface FieldErrorDetail {

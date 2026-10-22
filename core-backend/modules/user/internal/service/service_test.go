@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/example/core-backend/modules/user/internal/dto"
 	"github.com/example/core-backend/modules/user/internal/errcode"
 	"github.com/example/core-backend/modules/user/internal/model"
 	"github.com/example/core-backend/modules/user/internal/service"
+	"github.com/example/core-backend/pkg/auth"
 	"github.com/example/core-backend/pkg/exceptions"
 	"github.com/example/core-backend/pkg/tenantctx"
 	"gorm.io/gorm"
@@ -44,6 +46,24 @@ func (m *mockRepo) GetByEmail(ctx context.Context, tenantID, email string) (*mod
 		}
 	}
 	return nil, gorm.ErrRecordNotFound
+}
+
+func (m *mockRepo) GetByEmailAnyTenant(ctx context.Context, email string) ([]model.User, error) {
+	var res []model.User
+	for _, item := range m.items {
+		if item.Email == email {
+			res = append(res, *item)
+		}
+	}
+	return res, nil
+}
+
+func (m *mockRepo) UpdateLastLogin(ctx context.Context, tenantID, userID string, loginAt time.Time) error {
+	if item, ok := m.items[userID]; ok && item.TenantID == tenantID {
+		item.LastLoginAt = &loginAt
+		return nil
+	}
+	return gorm.ErrRecordNotFound
 }
 
 func (m *mockRepo) Update(ctx context.Context, user *model.User) error {
@@ -95,6 +115,35 @@ func TestUserService_Create_Success(t *testing.T) {
 	}
 	if len(created.Permissions) != 1 || created.Permissions[0] != "billing:view" {
 		t.Fatalf("expected custom ACL permission billing:view, got %v", created.Permissions)
+	}
+}
+
+func TestUserService_Create_WithPassword(t *testing.T) {
+	repo := newMockRepo()
+	svc := service.NewUserService(repo, nil)
+
+	ctx := tenantctx.WithContext(context.Background(), "tenant-beta")
+	created, err := svc.Create(ctx, &dto.CreateUserRequest{
+		Email:    "bruce@wayne.com",
+		Name:     "Bruce Wayne",
+		Role:     "owner",
+		Password: "BatmanPassword123!",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	saved, ok := repo.items[created.Id]
+	if !ok || saved == nil {
+		t.Fatalf("expected user %s to be saved in repo", created.Id)
+	}
+
+	if saved.PasswordHash == "" {
+		t.Fatal("expected PasswordHash to be set")
+	}
+
+	if !auth.CheckPassword(saved.PasswordHash, "BatmanPassword123!") {
+		t.Fatal("expected PasswordHash to match plain password")
 	}
 }
 
