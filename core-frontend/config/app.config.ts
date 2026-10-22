@@ -1,6 +1,7 @@
 import type { ModuleDefinition } from '@/core/modules/types';
+import { tenantModule } from '@/modules/tenant';
+import { userModule } from '@/modules/user';
 import { exampleModule } from '@/modules/example';
-import { iamModule } from '@/modules/iam';
 import { billingModule } from '@/modules/billing';
 import { settingsModule } from '@/modules/settings';
 
@@ -25,8 +26,9 @@ export const appConfig: AppConfig = {
     defaultTenant: 'default',
   },
   enabledModules: [
+    tenantModule,
+    userModule,
     exampleModule,
-    iamModule,
     billingModule,
     settingsModule,
   ],

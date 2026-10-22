@@ -2,53 +2,62 @@
 
 ## 1. Overview & Diagram
 
-The SaaS Starter Kit follows a **Modular Monolith** architecture designed for velocity and operational simplicity today, with zero-friction microservice extractability tomorrow.
+The SaaS Starter Kit follows a **Modular Monolith** architecture designed for velocity and operational simplicity today, with zero-friction microservice extractability tomorrow and flexible **Multi-Tenant Data Isolation** (Shared RLS, Schema-per-tenant, and Dedicated Database-per-tenant).
 
 ```
                     +-----------------------------+
                     |        HTTP Clients         |
+                    |    (Header: X-Tenant-ID)    |
                     +--------------+--------------+
                                    |
                                    v
                     +-----------------------------+
-                    |   Chi Router (pkg/httpx)    |
-                    |   Middlewares & /healthz    |
+                    |    Fiber / httpx Router     |
+                    |    Middlewares & /healthz   |
                     +--------------+--------------+
                                    |
          +-----------------+-------+-------+-----------------+
-         |                 |               |                 |
-         v                 v               v                 v
-  +--------------+  +--------------+  +--------------+  +--------------+
-  |   example    |  |     iam      |  |    tenant    |  | notification |
-  |    Module    |  |  (Stub Mod)  |  |  (Stub Mod)  |  |  (Stub Mod)  |
-  +-------+------+  +-------+------+  +-------+------+  +-------+------+
-          |                 |                 |                 |
-          +-----------------+--------+--------+-----------------+
-                                     |
-                                     v
-                       +-----------------------------+
-                       |    In-Process Event Bus     |
-                       |       (pkg/eventbus)        |
-                       +-----------------------------+
-                                     |
-                                     v
-                       +-----------------------------+
-                       |       PostgreSQL Pool       |
-                       |  Multi-Tenant RLS Strategy  |
-                       |        (pkg/tenantctx)      |
-                       +-----------------------------+
+         |                 |       |       |                 |
+         v                 v       v       v                 v
+  +--------------+  +----------+ +----------+  +----------+  +--------------+
+  |    tenant    |  |   user   | | example  |  |   iam    |  | notification |
+  |  (Catalog)   |  |  (RBAC)  | |  Module  |  |  (Stub)  |  |    (Stub)    |
+  +-------+------+  +----+-----+ +----+-----+  +----+-----+  +-------+------+
+          |              |            |             |                 |
+          |              +-----+------+             |                 |
+          |                    |                    |                 |
+                   v                          v                 v
+     +---------------------------+      +-------------------------------+
+     |  Dynamic DB Router        |      |     In-Process Event Bus      |
+     |  (pkg/db/router)          |      |        (pkg/eventbus)         |
+     +-------------+-------------+      +-------------------------------+
+                   |
+     +-------------+-------------+
+     |                           |
+[ isolate_mode: shared ]    [ isolate_mode: dedicated ]
+     |                           |
+     v                           v
++---------------------+     +---------------------+
+| Primary / Default   |     | Dedicated DB Pool   |
+| Database Pool       |     | (Tenant PostgreSQL) |
++---------------------+     +---------------------+
+| - tenants catalog   |     | - isolated items    |
+| - shared data (RLS) |     | - isolated users    |
++---------------------+     +---------------------+
 ```
 
 ---
 
 ## 2. Module Boundaries & Rules
 
-1. **Self-Contained Structure**: Every module contains its own:
-   - `domain/`: Business entities and ports (repository and service interfaces). Zero dependencies on external frameworks.
-   - `app/`: Use-case coordinators and domain event publication.
-   - `adapters/`: Outbound implementations (SQL storage, external APIs).
-   - `http/`: Inbound HTTP handlers and route registration.
-   - `migrations/`: Embedded SQL migrations isolated in a per-module Goose version table.
+1. **Module Autonomy & Internal Freedom**:
+   - The platform treats each module as an autonomous domain unit. Inside their module directory (`modules/<name>`), developers are completely free to choose any architectural style that best fits their domain:
+     - **Tenant Layered Pattern** (Recommended default: `internal/{dto,errcode,handler,model,repository,service}`).
+     - **Hexagonal / Clean Architecture** (`domain`, `app`, `adapters`, `http` like `modules/example`).
+     - **CQRS / Vertical Slices** or **Lightweight Flat CRUD**.
+     - Any persistence mechanism (GORM, raw `pgxpool`, SQLC, or external APIs).
+   - If developers want the recommended, battle-tested layout out of the box, `make new-module NAME=<name>` scaffolds the full Tenant layout, wires test suites, and auto-registers the module in the monolith in one command.
+   - The only contract required by the platform is implementing `kernel.Module` (`Name()`, `Register(r)`, and `Migrate(ctx)`).
 2. **Explicit Dependency Injection**: Modules expose a `New(pool, bus)` constructor and implement `kernel.Module`. Reflection and dynamic scanning are forbidden.
 3. **Internal Package Isolation**: Modules must **NEVER** import another module's internal packages (`domain/`, `app/`, `adapters/`, `http/`). Cross-module interactions occur strictly via:
    - Exported root package contracts or DTOs.
@@ -57,7 +66,126 @@ The SaaS Starter Kit follows a **Modular Monolith** architecture designed for ve
 
 ---
 
-## 3. How to Split a Module into its Own Microservice
+## 3. Multi-Tenant Architecture & Dynamic DB Routing
+
+The platform supports a hybrid, multi-tier isolation model where tenants can select different isolation strategies based on compliance, performance, or subscription tier.
+
+### 3.1. Tenant Isolation Modes (`isolate_mode`)
+
+Each tenant record in the catalog specifies an `isolate_mode`:
+
+| Mode | Database | Schema | Isolation Mechanism | Best Suited For |
+|---|---|---|---|---|
+| `shared` | Shared Primary DB | Shared Schema | PostgreSQL Row-Level Security (`app.current_tenant_id`) | Free / Starter / Standard tiers |
+| `schema` | Shared Primary DB | Separate Schema | Search path (`SET LOCAL search_path = <tenant>`) | Mid-tier / Team workspaces |
+| `dedicated` | Separate DB Instance/Cluster | Isolated DB | Dynamic Connection Pool Router (`pkg/db/router`) | Enterprise / High-compliance / Data sovereignty |
+
+### 3.2. Control Plane vs. Data Plane
+
+1. **Control Plane (Catalog Database)**:
+   - Lives in the Primary PostgreSQL database (`DefaultPool`).
+   - Hosts system catalog tables: `tenants`, subscriptions, global billing, and platform audit logs.
+   - The `tenant` module always connects to the Control Plane.
+
+2. **Data Plane (Business Data)**:
+   - Hosts domain tables: `example_items`, `iam_users`, `notifications`, etc.
+   - For `shared` tenants, resides in the Primary DB alongside RLS policies.
+   - For `dedicated` tenants, resides in the tenant's dedicated PostgreSQL database.
+
+### 3.3. Dynamic DB Connection Pool Router (`pkg/db/router`)
+
+Modules interact with the database via the **`router.DBProvider`** interface:
+```go
+type DBProvider interface {
+    GetPool(ctx context.Context) (*pgxpool.Pool, error)
+    GetDefaultPool() *pgxpool.Pool
+    Close()
+}
+```
+
+Key runtime features of `DynamicDBRouter`:
+- **Context-Aware Routing**: Inspects `tenantctx.FromContext(ctx)` to determine tenant ID.
+- **Tenant Resolver & In-Memory TTL Cache**: Resolves `TenantRouteInfo` (`IsolateMode`, `DSN`, `MaxConns`) via `CachedTenantResolver` without repeating catalog lookups on every request.
+- **Lazy Connection**: Pools for dedicated tenants are opened on-demand upon first incoming request.
+- **Thread-Safe Pooling**: Managed via `sync.RWMutex` protecting `map[string]*pgxpool.Pool`.
+- **Idle Pool Reaper**: A background worker periodically reaps connection pools that have been idle past `idleTimeout` (default: 30 minutes), releasing database file descriptors and memory.
+- **Graceful Shutdown**: Automatically drains and closes all opened tenant pools upon application termination.
+
+### 3.4. Dedicated Database Security & Governance (`pkg/db/security.go`)
+
+Dedicated databases introduce unique operational and security risks (connection exhaustion, insecure plaintext traffic, and SSRF attacks against internal infrastructure). These concerns are governed at the infrastructure foundation layer ([`pkg/db/security.go`](../pkg/db/security.go)) adhering strictly to the **Single Responsibility Principle (SRP)**:
+
+1. **Denial of Client Pool Configuration**:
+   - Allowing tenants or end-users to specify connection pool sizes leads to server resource starvation or database denial-of-service.
+   - The platform strictly denies user pool customization, enforcing **`DefaultTenantMaxConns = 10`** uniformly across all dedicated pools.
+2. **Strict TLS / SSL Mode Enforcement**:
+   - Allowing callers to configure `ssl_mode` (such as `disable`) risks unencrypted transmission of sensitive tenant data across networks.
+   - The platform strictly enforces **`DefaultTenantSSLMode = "require"`**. Any client override attempt is rejected/overwritten.
+3. **SSRF & Network Defense (`ValidateDSN`)**:
+   - Connection strings are parsed and checked against prohibited targets: loopback addresses (`127.0.0.0/8`, `localhost`, `::1`, `0.0.0.0`) and cloud instance metadata services (`169.254.169.254`).
+4. **Architectural Separation of Concerns (Domain vs. Infrastructure)**:
+   - `modules/tenant/internal/service` focuses purely on tenant lifecycle domain orchestration (activation, suspension, event publication).
+   - Low-level network host inspection, PostgreSQL connection parsing (`pgconn.ParseConfig`), and pool limits reside in `pkg/db`, ensuring reusable, circular-dependency-free infrastructure across dynamic routers, migrations, and health checks.
+
+### 3.5. Tenant Promotion & Migration Workflow (Shared to Dedicated)
+
+When an existing `shared` tenant upgrades to an enterprise `dedicated` database:
+
+1. **Set Tenant State**: Update tenant status to `migrating` (blocks writes, read-only mode).
+2. **Extract Tenant Data**: Dump rows matching `tenant_id = X` across all domain tables.
+3. **Run Schema Migrations**: Execute Goose migrations for all business modules onto the new dedicated database.
+4. **Load Data**: Insert the exported rows into the dedicated database.
+5. **Update Routing Catalog**: Update `tenants` with `isolate_mode = 'dedicated'` and `db_config.dsn`.
+6. **Invalidate Cache**: Broadcast `tenant.updated` event over `eventbus` to flush `CachedTenantResolver`.
+7. **Purge Old Data**: Soft-delete or archive tenant records in the shared database.
+### 3.6. Multi-Tenant RBAC & Real-Time Authorization Engine (`modules/user`)
+
+The platform implements an enterprise multi-tenant Role-Based Access Control (RBAC) and Access Control List (ACL) engine:
+
+1. **System Roles vs. Custom Tenant Roles (`is_system`)**:
+   - Each tenant has 4 immutable system roles: `owner`, `admin`, `member`, `viewer` (`is_system = true`).
+   - System roles cannot be modified or deleted, protecting the organization from catastrophic lockout or misconfiguration.
+   - Tenants can define unlimited custom roles (`is_system = false`) or clone baseline templates.
+   - The `SyncSystemRoles` process automatically updates system roles with newly registered module permissions without touching custom roles.
+
+2. **Security Invariants**:
+   - **Anti-Lockout Owner Protection**: Guaranteed invariant that every tenant maintains at least one active user with the `owner` role. Deleting a user or revoking their role is blocked if it would leave the tenant without an owner (`E032013`).
+   - **Privilege Escalation Prevention (Subset Rule)**: Administrators can only grant roles or permissions that they themselves possess (`E032009`).
+   - **Scope Boundaries**: Distinguishes between `ScopeTenant` permissions (assignable within tenant workspaces) and `ScopePlatform` permissions (restricted to host platform operators).
+
+3. **Real-Time Distributed Invalidation via PostgreSQL `pg_notify`**:
+   - Authoritative permissions are tracked via an `authz_version` epoch table per tenant.
+   - Any permission change atomically bumps `version++` and triggers:
+     ```sql
+     SELECT pg_notify('authz_invalidation', tenant_id)
+     ```
+   - All backend instances listening to the channel instantly evict tenant authorization caches, eliminating stale permission windows.
+
+### 3.7. Tenant Context Propagation & Edge Proxy Interception
+
+```
+[Browser / Client]
+       │
+       │ HTTP Request (X-Tenant-ID: <id>)
+       ▼
+[Next.js 16 Edge Proxy (core-frontend/src/proxy.ts)]
+       │
+       │ Resolves: Header > ?tenant= query > Host subdomain > Cookie
+       │ Sets normalized 'x-tenant-id' and syncs client cookie
+       ▼
+[Go Fiber Backend (core-backend/pkg/tenantctx/middleware.go)]
+       │
+       │ Extracts: c.Get("X-Tenant-ID") / c.Get("x-tenant-id")
+       │ Injects into context: c.Locals("tenant_id", tenantID)
+       ▼
+[Dynamic DB Router / Domain Modules]
+```
+
+This guarantees seamless tenant resolution across local development (`localhost:3000`), custom subdomains (`acme.saas.local`), and programmatic API integrations.
+
+---
+
+## 4. How to Split a Module into its Own Microservice
 
 The starter kit already demonstrates this pattern with `cmd/example-service/main.go`.
 

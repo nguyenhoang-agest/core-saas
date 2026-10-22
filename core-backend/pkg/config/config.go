@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -46,8 +47,39 @@ func Default() *Config {
 	}
 }
 
+// loadDotEnv reads environment files (e.g. .env) and sets any variables not already set in the process.
+func loadDotEnv(paths ...string) {
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'')) {
+				val = val[1 : len(val)-1]
+			}
+			if os.Getenv(key) == "" {
+				os.Setenv(key, val)
+			}
+		}
+	}
+}
+
 // Load loads configuration from an optional file and overlays environment variables.
 func Load(filePath string) (*Config, error) {
+	loadDotEnv(".env", "../.env")
+
 	cfg := Default()
 
 	if filePath != "" {
@@ -68,10 +100,40 @@ func Load(filePath string) (*Config, error) {
 	}
 	if env := os.Getenv("ENV"); env != "" {
 		cfg.Server.Env = env
+	} else if appEnv := os.Getenv("APP_ENV"); appEnv != "" {
+		cfg.Server.Env = appEnv
 	}
+
+	// Database overrides: accept full URL or granular connection parameters
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
 		cfg.Database.URL = dbURL
+	} else if dbURL := os.Getenv("DB_URL"); dbURL != "" {
+		cfg.Database.URL = dbURL
+	} else if dbHost := os.Getenv("DB_HOST"); dbHost != "" {
+		dbPort := os.Getenv("DB_PORT")
+		if dbPort == "" {
+			dbPort = "5432"
+		}
+		dbUser := os.Getenv("DB_USER")
+		if dbUser == "" {
+			dbUser = "postgres"
+		}
+		dbPass := os.Getenv("DB_PASSWORD")
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			dbName = "saas_dev"
+		}
+		sslMode := os.Getenv("DB_SSLMODE")
+		if sslMode == "" {
+			sslMode = "disable"
+		}
+		if dbPass != "" {
+			cfg.Database.URL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", dbUser, dbPass, dbHost, dbPort, dbName, sslMode)
+		} else {
+			cfg.Database.URL = fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=%s", dbUser, dbHost, dbPort, dbName, sslMode)
+		}
 	}
+
 	if maxConns := os.Getenv("DB_MAX_CONNS"); maxConns != "" {
 		if val, err := strconv.ParseInt(maxConns, 10, 32); err == nil {
 			cfg.Database.MaxConns = int32(val)

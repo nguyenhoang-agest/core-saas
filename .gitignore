@@ -1,0 +1,16 @@
+# Local environment variables
+.env
+.env.local
+!.env.example
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Build artifacts & dependencies
+node_modules/
+dist/
+build/
+.next/
+*.log

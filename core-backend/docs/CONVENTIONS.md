@@ -20,21 +20,29 @@ import "github.com/example/core-backend/pkg/errors"
 if item == nil {
     return nil, errors.NotFound("item not found", nil)
 }
-if input.Name == "" {
+if opts.Name == "" {
     return nil, errors.InvalidArgument("name is required", nil)
 }
 ```
 
-- When returning errors in HTTP handlers, call `httpx.Error(w, err)`.
-- `httpx.Error` automatically inspects `errors.AsAppError` and emits the corresponding HTTP status code (404, 400, 401, 403, 409, 422, 500) and standard JSON payload:
+- When returning errors in HTTP handlers, errors propagate to the central `pkg/httpx` error handler.
+- The platform emits a standardized, machine-readable JSON error payload:
 ```json
 {
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "item not found"
-  }
+  "status": "error",
+  "message_code": "E031006",
+  "error_detail": [
+    {
+      "field": "dsn",
+      "message_code": "E031006"
+    }
+  ]
 }
 ```
+
+### Machine-Readable Message Codes & Localization Boundary
+- Modules define unique, structured error codes in `internal/errcode` (e.g. `TenantNameRequired = "E031001"`, `InvalidDedicatedDBConfig = "E031006"`).
+- **Zero Locale Duplication**: Domain modules do NOT embed localized string dictionary files (`locales/`). The backend emits standardized `message_code` values, while the client frontend application resolves localized user-facing text from `src/locales/{en,vi}/errors.json`. This guarantees a single source of truth for translations and keeps backend modules pure and lightweight.
 
 ---
 

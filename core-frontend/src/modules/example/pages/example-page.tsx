@@ -2,11 +2,9 @@
 
 import React from 'react';
 import { Card, Table, Typography, Input, Button, Space, Tag } from 'antd';
-import {
-  ExampleStoreProvider,
-  useExampleStore,
-} from '../store/example-store';
-import { useExampleItems, type ExampleItem } from '../api/example-api';
+import { ExampleStoreProvider, useExampleStore } from '../store/example-store';
+import { useExampleItems } from '../hooks/example-hooks';
+import type { ExampleItem } from '../api/example-api';
 import { Can } from '@/core/auth/can';
 import { useTenant } from '@/core/tenant/tenant-context';
 
@@ -37,8 +35,7 @@ function ExampleContent() {
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
-        const color =
-          status === 'completed' ? 'green' : status === 'pending' ? 'gold' : 'blue';
+        const color = status === 'completed' ? 'green' : status === 'pending' ? 'gold' : 'blue';
         return <Tag color={color}>{status.toUpperCase()}</Tag>;
       },
     },
@@ -56,8 +53,11 @@ function ExampleContent() {
           <Title level={2}>Example Module Slice</Title>
           <Paragraph type="secondary">
             A thin vertical slice demonstrating integration across Ant Design, React Query
-            (tenant-scoped), Zustand (context-safe store factory), and UI permission guards.
-            Active Tenant: <Tag color="blue">{tenant.name} ({tenant.id})</Tag>
+            (tenant-scoped), Zustand (context-safe store factory), and UI permission guards. Active
+            Tenant:{' '}
+            <Tag color="blue">
+              {tenant.name} ({tenant.id})
+            </Tag>
           </Paragraph>
         </div>
 
@@ -80,13 +80,12 @@ function ExampleContent() {
               permission="example:write"
               fallback={
                 <Text type="secondary">
-                  (Protected mutation button hidden - requires <code>example:write</code> permission)
+                  (Protected mutation button hidden - requires <code>example:write</code>{' '}
+                  permission)
                 </Text>
               }
             >
-              <Button type="primary">
-                Protected Mutation Action
-              </Button>
+              <Button type="primary">Protected Mutation Action</Button>
             </Can>
           </Space>
         </Card>

@@ -4,6 +4,7 @@ import { ExampleWidget } from './components/example-widget';
 
 export * from './store/example-store';
 export * from './api/example-api';
+export * from './hooks/example-hooks';
 export * from './pages/example-page';
 export * from './components/example-widget';
 

@@ -1,27 +1,17 @@
-# Module Template
+# Template Module
 
-This directory serves as the template scaffold for generating new modules with `scripts/new-module.sh <name>`.
+## Purpose
+Canonical blueprint for backend domain modules following the **Tenant Pattern & Structure**.
 
-## Structure
+---
 
-- `module.go`: Wires dependencies and satisfies `kernel.Module`.
-- `domain/`: Pure domain types and port interfaces.
-- `app/`: Application use-case services.
-- `adapters/`: Outbound adapter implementations (database, external clients).
-- `http/`: Inbound HTTP handlers and route registration.
-- `migrations/`: Embedded goose SQL migrations.
-
-## Planned Ports & Events
-
-- Inbound: HTTP REST endpoints.
-- Outbound: Database repository.
-- Events: Domain events published to `pkg/eventbus`.
-
-## TODO Checklist
-
-- [ ] Define domain entities and repository interfaces in `domain/`
-- [ ] Implement use cases in `app/`
-- [ ] Implement data access in `adapters/`
-- [ ] Define HTTP request/response DTOs and routes in `http/`
-- [ ] Add SQL schema migrations in `migrations/`
-- [ ] Wire dependencies in `module.go`
+## Layout
+- `module.go`: Module lifecycle entrypoint implementing `kernel.Module`. Wires GORM `*gorm.DB`, repository, service, and Fiber handler.
+- `api/`: Public contracts, DTOs, and event topics (`events.go`).
+- `internal/model/`: Domain entity models with GORM tags and `BaseModel` (`base_model.go`).
+- `internal/dto/`: Request/Response data transfer objects with validator tags.
+- `internal/errcode/`: Standardized machine-readable error codes.
+- `internal/repository/`: Data access implementations wrapping GORM `*gorm.DB`.
+- `internal/service/`: Business domain orchestration and eventbus publishing.
+- `internal/handler/`: Fiber v3 HTTP handlers and route registration.
+- `migrations/`: Embedded Goose SQL migrations.

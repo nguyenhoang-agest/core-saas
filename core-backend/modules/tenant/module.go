@@ -4,13 +4,15 @@ import (
 	"context"
 	"embed"
 
-	"github.com/example/core-backend/modules/tenant/adapters"
-	tenanthttp "github.com/example/core-backend/modules/tenant/http"
-	"github.com/example/core-backend/modules/tenant/service"
+	"github.com/example/core-backend/modules/tenant/internal/handler"
+	"github.com/example/core-backend/modules/tenant/internal/repository"
+	"github.com/example/core-backend/modules/tenant/internal/service"
+	"github.com/example/core-backend/pkg/db"
+	"github.com/example/core-backend/pkg/db/router"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/kernel"
 	"github.com/example/core-backend/pkg/migrate"
-	"github.com/go-chi/chi/v5"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,24 +21,24 @@ var migrationsFS embed.FS
 
 var _ kernel.Module = (*Module)(nil)
 
-// Module encapsulates the tenant management module.
 type Module struct {
 	pool    *pgxpool.Pool
 	bus     *eventbus.Bus
 	service service.ITenantService
-	handler *tenanthttp.Handler
+	handler *handler.Handler
 }
 
 func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
-	repo := adapters.NewPostgresTenantRepository(pool)
+	gormDB, _ := db.NewGorm(pool)
+	repo := repository.NewPostgresTenantRepository(gormDB)
 	svc := service.NewTenantService(repo, bus)
-	handler := tenanthttp.NewHandler(svc)
+	h := handler.NewHandler(svc)
 
 	return &Module{
 		pool:    pool,
 		bus:     bus,
 		service: svc,
-		handler: handler,
+		handler: h,
 	}
 }
 
@@ -44,13 +46,17 @@ func (m *Module) Name() string {
 	return "tenant"
 }
 
-func (m *Module) Register(r chi.Router) error {
-	r.Route("/tenants", func(sub chi.Router) {
-		m.handler.RegisterRoutes(sub)
-	})
+func (m *Module) Register(r fiber.Router) error {
+	group := r.Group("/tenants")
+	m.handler.RegisterRoutes(group)
 	return nil
 }
 
 func (m *Module) Migrate(ctx context.Context) error {
 	return migrate.Run(ctx, m.pool, m.Name(), migrationsFS, "migrations")
+}
+
+// Resolver returns a router.TenantResolver backed by this module's tenant service.
+func (m *Module) Resolver() router.TenantResolver {
+	return NewTenantResolver(m.service)
 }

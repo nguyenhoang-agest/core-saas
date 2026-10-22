@@ -1,2 +1,0 @@
-// IAM module components
-export {};

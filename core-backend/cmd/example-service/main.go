@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -76,37 +74,26 @@ func main() {
 		})
 	}
 
-	if err := exampleMod.Register(server.Router); err != nil {
+	if err := exampleMod.Register(server.App); err != nil {
 		log.Error("failed to register module routes", "module", exampleMod.Name(), "error", err)
 		os.Exit(1)
 	}
 
-	httpServer := &http.Server{
-		Addr:         ":" + cfg.Server.Port,
-		Handler:      server.Router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := server.App.Listen(":" + cfg.Server.Port); err != nil {
 			log.Error("http server failed", "error", err)
-			os.Exit(1)
 		}
 	}()
 
-	log.Info("example-service listening", "addr", httpServer.Addr)
+	log.Info("example-service listening", "port", cfg.Server.Port)
 	<-sigChan
 	log.Info("shutting down gracefully...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+	if err := server.App.ShutdownWithTimeout(10 * time.Second); err != nil {
 		log.Error("server forced to shutdown", "error", err)
 	}
 

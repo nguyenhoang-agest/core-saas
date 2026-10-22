@@ -3,6 +3,7 @@ import { SettingsPage } from './pages/settings-page';
 
 export * from './store/settings-store';
 export * from './api/settings-api';
+export * from './hooks/settings-hooks';
 export * from './pages/settings-page';
 
 export const settingsModule: ModuleDefinition = {

@@ -7,6 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 // Connect initializes a pgxpool.Pool connection pool.
@@ -33,6 +36,25 @@ func Connect(ctx context.Context, dsn string, maxConns int32) (*pgxpool.Pool, er
 	}
 
 	return pool, nil
+}
+
+// NewGorm initializes a *gorm.DB instance backed by an existing pgxpool.Pool.
+func NewGorm(pool *pgxpool.Pool) (*gorm.DB, error) {
+	if pool == nil {
+		return nil, nil
+	}
+
+	sqlDB := stdlib.OpenDBFromPool(pool)
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{
+		Conn: sqlDB,
+	}), &gorm.Config{
+		TranslateError: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initializing gorm db: %w", err)
+	}
+
+	return gormDB, nil
 }
 
 // Ping verifies database connectivity.

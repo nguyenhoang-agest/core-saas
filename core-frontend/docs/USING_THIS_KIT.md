@@ -57,13 +57,13 @@ Modules are explicitly declared in `config/app.config.ts`. To enable or disable 
 
 ```ts
 import { exampleModule } from '@/modules/example';
-import { iamModule } from '@/modules/iam';
+import { userModule } from '@/modules/user';
 import { billingModule } from '@/modules/billing';
 
 export const appConfig = {
   enabledModules: [
     exampleModule,
-    iamModule,
+    userModule,
     // billingModule, // Comment out to disable billing
   ],
 };

@@ -4,13 +4,14 @@ import (
 	"context"
 	"embed"
 
-	"github.com/example/core-backend/modules/_template/adapters"
-	"github.com/example/core-backend/modules/_template/app"
-	templatehttp "github.com/example/core-backend/modules/_template/http"
+	"github.com/example/core-backend/modules/_template/internal/handler"
+	"github.com/example/core-backend/modules/_template/internal/repository"
+	"github.com/example/core-backend/modules/_template/internal/service"
+	"github.com/example/core-backend/pkg/db"
 	"github.com/example/core-backend/pkg/eventbus"
 	"github.com/example/core-backend/pkg/kernel"
 	"github.com/example/core-backend/pkg/migrate"
-	"github.com/go-chi/chi/v5"
+	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,42 +20,37 @@ var migrationsFS embed.FS
 
 var _ kernel.Module = (*Module)(nil)
 
-// Module encapsulates the template module.
 type Module struct {
 	pool    *pgxpool.Pool
 	bus     *eventbus.Bus
-	service *app.Service
-	handler *templatehttp.Handler
+	service service.ITemplateService
+	handler *handler.Handler
 }
 
-// New constructs the template module dependencies.
 func New(pool *pgxpool.Pool, bus *eventbus.Bus) *Module {
-	repo := adapters.NewRepository(pool)
-	service := app.NewService(repo, bus)
-	handler := templatehttp.NewHandler(service)
+	gormDB, _ := db.NewGorm(pool)
+	repo := repository.NewPostgresTemplateRepository(gormDB)
+	svc := service.NewTemplateService(repo, bus)
+	h := handler.NewHandler(svc)
 
 	return &Module{
 		pool:    pool,
 		bus:     bus,
-		service: service,
-		handler: handler,
+		service: svc,
+		handler: h,
 	}
 }
 
-// Name returns the module identifier.
 func (m *Module) Name() string {
 	return "template"
 }
 
-// Register mounts HTTP endpoints.
-func (m *Module) Register(r chi.Router) error {
-	r.Route("/template", func(sub chi.Router) {
-		m.handler.RegisterRoutes(sub)
-	})
+func (m *Module) Register(r fiber.Router) error {
+	group := r.Group("/templates")
+	m.handler.RegisterRoutes(group)
 	return nil
 }
 
-// Migrate executes migrations.
 func (m *Module) Migrate(ctx context.Context) error {
 	return migrate.Run(ctx, m.pool, m.Name(), migrationsFS, "migrations")
 }
